@@ -1,0 +1,69 @@
+mode: rule
+log-level: warning
+
+allow-lan: true
+bind-address: "*"
+
+# Forward proxy
+port: 2080
+socks-port: 2081
+udp: true
+
+# Transparent proxy
+tproxy-port: 2082
+
+dns:
+  enable: false
+
+proxy-providers:
+  subscription:
+    type: http
+    url: "your-subscription-link.com"
+    interval: 3600
+    path: ./providers/subscription.yaml
+    health-check:
+      enable: true
+      url: https://redirector.googlevideo.com/
+      interval: 300
+      timeout: 5000
+      lazy: true
+      expected-status: 200
+
+proxy-groups:
+  - name: INSTAGRAM_AUTO
+    type: load-balance
+    strategy: round-robin
+    use:
+      - subscription
+    url: https://www.instagram.com/
+    interval: 300
+    timeout: 10000
+
+  - name: PROXY_AUTO
+    type: fallback
+    use:
+      - subscription
+    url: https://redirector.googlevideo.com/
+    interval: 300
+    timeout: 5000
+
+  - name: PROXY_SELECT
+    type: select
+    use:
+      - subscription
+
+# Правила маршрутизации
+rules:
+  - GEOIP,private,DIRECT
+  - IP-CIDR,192.168.0.0/16,DIRECT,no-resolve
+  - IP-CIDR,10.0.0.0/8,DIRECT,no-resolve
+  - IP-CIDR,172.16.0.0/12,DIRECT,no-resolve
+  - IP-CIDR,127.0.0.0/8,DIRECT,no-resolve
+  - IP-CIDR,224.0.0.0/4,DIRECT,no-resolve
+  - IP-CIDR6,ff00::/8,DIRECT,no-resolve
+
+  - DOMAIN-SUFFIX,instagram.com,INSTAGRAM_AUTO
+  - DOMAIN-SUFFIX,cdninstagram.com,INSTAGRAM_AUTO
+  - DOMAIN-SUFFIX,fbcdn.net,INSTAGRAM_AUTO
+
+  - MATCH,PROXY_AUTO
