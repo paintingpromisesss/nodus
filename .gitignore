@@ -1,1 +1,5 @@
 *.yaml
+.env
+data/
+tmp/
+*.md

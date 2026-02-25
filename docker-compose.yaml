@@ -30,3 +30,25 @@ services:
     depends_on:
       mihomo:
         condition: service_healthy
+  tg_bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tg_bot
+    restart: unless-stopped
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      COBALT_BASE_URL: ${COBALT_BASE_URL}
+      MIHOMO_BASE_URL: ${MIHOMO_BASE_URL}
+      MAX_FILE_BYTES: ${MAX_FILE_BYTES}
+      DB_PATH: ${DB_PATH}
+      TEMP_DIR: ${TEMP_DIR}
+      REQUEST_TIMEOUT: ${REQUEST_TIMEOUT}
+      DOWNLOAD_TIMEOUT: ${DOWNLOAD_TIMEOUT}
+      LOG_LEVEL: ${LOG_LEVEL}
+    volumes:
+      - ./data:/app/data
+      - ./tmp:/app/tmp
+    depends_on:
+      cobalt:
+        condition: service_started
