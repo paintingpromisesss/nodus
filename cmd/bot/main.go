@@ -5,10 +5,10 @@ import (
 	"fmt"
 
 	"github.com/paintingpromisesss/cobalt_bot/internal/config"
+	repository "github.com/paintingpromisesss/cobalt_bot/internal/infrastructure/repository/sqlite"
+	storage "github.com/paintingpromisesss/cobalt_bot/internal/infrastructure/storage/sqlite"
 	zapLogger "github.com/paintingpromisesss/cobalt_bot/internal/logger"
-	repositorySQLite "github.com/paintingpromisesss/cobalt_bot/internal/repository/sqlite"
 	"github.com/paintingpromisesss/cobalt_bot/internal/service"
-	storageSQLite "github.com/paintingpromisesss/cobalt_bot/internal/storage/sqlite"
 	"go.uber.org/zap"
 )
 
@@ -24,7 +24,7 @@ func main() {
 	}
 	defer func() { _ = logger.Sync() }()
 
-	sqliteDB, err := storageSQLite.New(cfg.DBPath)
+	sqliteDB, err := storage.New(cfg.DBPath)
 	if err != nil {
 		logger.Fatal("db init failed", zap.Error(err), zap.String("db_path", cfg.DBPath))
 	}
@@ -48,7 +48,7 @@ func main() {
 
 	logger.Info("sqlite initialized", zap.String("db_path", cfg.DBPath))
 
-	settingsRepo, err := repositorySQLite.NewUserSettingsRepository(sqliteDB.SQL())
+	settingsRepo, err := repository.NewUserSettingsRepository(sqliteDB.SQL())
 	if err != nil {
 		logger.Fatal("settings repository init failed", zap.Error(err))
 	}

@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/paintingpromisesss/cobalt_bot/internal/repository"
+	"github.com/paintingpromisesss/cobalt_bot/internal/infrastructure/repository"
 )
 
 type UserSettingsService struct {

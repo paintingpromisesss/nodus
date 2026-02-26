@@ -30,6 +30,7 @@ func New(dbPath string) (*DB, error) {
 		return nil, fmt.Errorf("open sqlite db: %w", err)
 	}
 
+	// Keep the footprint small for a single-process bot and avoid lock churn.
 	db.SetMaxOpenConns(1)
 
 	if _, err := db.Exec(`PRAGMA foreign_keys = ON;`); err != nil {

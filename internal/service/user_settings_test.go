@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/paintingpromisesss/cobalt_bot/internal/repository"
+	"github.com/paintingpromisesss/cobalt_bot/internal/infrastructure/repository"
 )
 
 type mockUserSettingsRepo struct {
