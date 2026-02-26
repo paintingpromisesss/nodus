@@ -45,14 +45,14 @@ func (s *UserSettingsService) GetByUserID(ctx context.Context, userID int64) (re
 	return out, nil
 }
 
-func (s *UserSettingsService) UpdateByUserID(ctx context.Context, userID int64, in repository.UserSettings) error {
+func (s *UserSettingsService) UpsertByUserID(ctx context.Context, userID int64, in repository.UserSettings) error {
 	settings, err := normalizeAndValidate(in)
 	if err != nil {
 		return err
 	}
 
-	if err := s.repo.UpdateByUserID(ctx, userID, settings); err != nil {
-		return fmt.Errorf("update user settings: %w", err)
+	if err := s.repo.UpsertByUserID(ctx, userID, settings); err != nil {
+		return fmt.Errorf("upsert user settings: %w", err)
 	}
 
 	return nil

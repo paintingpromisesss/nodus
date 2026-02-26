@@ -16,5 +16,5 @@ type UserSettings struct {
 
 type UserSettingsRepository interface {
 	GetByUserID(ctx context.Context, userID int64) (UserSettings, bool, error)
-	UpdateByUserID(ctx context.Context, userID int64, settings UserSettings) error
+	UpsertByUserID(ctx context.Context, userID int64, settings UserSettings) error
 }

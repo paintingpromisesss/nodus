@@ -60,7 +60,7 @@ WHERE user_id = ?;`
 	return out, true, nil
 }
 
-func (r *UserSettingsRepository) UpdateByUserID(ctx context.Context, userID int64, settings repository.UserSettings) error {
+func (r *UserSettingsRepository) UpsertByUserID(ctx context.Context, userID int64, settings repository.UserSettings) error {
 	const query = `
 INSERT INTO user_settings (
   user_id,
@@ -108,7 +108,7 @@ ON CONFLICT(user_id) DO UPDATE SET
 		settings.SubtitleLang,
 		updatedAt,
 	); err != nil {
-		return fmt.Errorf("update user settings: %w", err)
+		return fmt.Errorf("upsert user settings: %w", err)
 	}
 
 	return nil
