@@ -12,7 +12,6 @@ import (
 type Config struct {
 	TelegramBotToken string
 	CobaltBaseURL    string
-	MihomoBaseURL    string
 	MaxFileBytes     int64
 	DBPath           string
 	TempDir          string
@@ -25,7 +24,6 @@ func Load() (Config, error) {
 	cfg := Config{
 		TelegramBotToken: strings.TrimSpace(os.Getenv("TELEGRAM_BOT_TOKEN")),
 		CobaltBaseURL:    getEnvDefault("COBALT_BASE_URL", "http://127.17.0.1:9000/"),
-		MihomoBaseURL:    getEnvDefault("MIHOMO_BASE_URL", "none"),
 		DBPath:           getEnvDefault("DB_PATH", "./data/bot.db"),
 		TempDir:          getEnvDefault("TEMP_DIR", "./tmp"),
 		LogLevel:         strings.ToLower(getEnvDefault("LOG_LEVEL", "info")),
