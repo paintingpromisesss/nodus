@@ -1,92 +1,39 @@
 package storage
 
 import (
-	"database/sql"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
-	"sort"
-	"strings"
+
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/sqlite"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
+	"github.com/jmoiron/sqlx"
+	migrations "github.com/paintingpromisesss/cobalt_bot/migrations"
 )
 
-func migrate(db *sql.DB) error {
-	queries, err := loadMigrationQueries()
+func Migrate(db *sqlx.DB) error {
+	sourceDriver, err := iofs.New(migrations.FS, ".")
 	if err != nil {
-		return err
+		return fmt.Errorf("init embedded migration source: %w", err)
 	}
 
-	for _, query := range queries {
-		if strings.TrimSpace(query.sql) == "" {
-			continue
-		}
+	dbDriver, err := sqlite.WithInstance(db.DB, &sqlite.Config{
+		MigrationsTable: "schema_migrations",
+	})
+	if err != nil {
+		return fmt.Errorf("init migration db driver: %w", err)
+	}
 
-		if _, err := db.Exec(query.sql); err != nil {
-			return fmt.Errorf("run migration %q: %w", query.name, err)
-		}
+	migrateInstance, err := migrate.NewWithInstance("iofs", sourceDriver, "sqlite", dbDriver)
+	if err != nil {
+		return fmt.Errorf("init migrate instance: %w", err)
+	}
+
+	defer migrateInstance.Close()
+
+	if err := migrateInstance.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
+		return fmt.Errorf("run migrations: %w", err)
 	}
 
 	return nil
-}
-
-type migrationQuery struct {
-	name string
-	sql  string
-}
-
-func loadMigrationQueries() ([]migrationQuery, error) {
-	files, err := loadMigrationFiles()
-	if err != nil {
-		return nil, err
-	}
-
-	queries := make([]migrationQuery, 0, len(files))
-	for _, p := range files {
-		b, err := os.ReadFile(filepath.Clean(p))
-		if err != nil {
-			return nil, fmt.Errorf("read migration file %q: %w", p, err)
-		}
-
-		queries = append(queries, migrationQuery{
-			name: filepath.Base(p),
-			sql:  string(b),
-		})
-	}
-
-	return queries, nil
-}
-
-func loadMigrationFiles() ([]string, error) {
-	candidates := []string{
-		"migrations",
-		filepath.Join("..", "..", "migrations"),
-		filepath.Join("..", "..", "..", "migrations"),
-		filepath.Join("/app", "migrations"),
-	}
-
-	for _, dir := range candidates {
-		entries, err := os.ReadDir(filepath.Clean(dir))
-		if err == nil {
-			files := make([]string, 0, len(entries))
-			for _, entry := range entries {
-				if entry.IsDir() || filepath.Ext(entry.Name()) != ".sql" {
-					continue
-				}
-				files = append(files, filepath.Join(dir, entry.Name()))
-			}
-
-			if len(files) == 0 {
-				continue
-			}
-
-			sort.Strings(files)
-			return files, nil
-		}
-
-		if !errors.Is(err, os.ErrNotExist) {
-			return nil, fmt.Errorf("read migrations dir %q: %w", dir, err)
-		}
-	}
-
-	return nil, fmt.Errorf("migration dir with .sql files not found in candidates: %v", candidates)
 }

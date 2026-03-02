@@ -17,7 +17,6 @@ RUN addgroup -S app && adduser -S -G app app \
 WORKDIR /app
 
 COPY --from=builder /out/tg_bot /app/tg_bot
-COPY migrations /app/migrations
 
 RUN mkdir -p /app/data /app/tmp && chown -R app:app /app
 

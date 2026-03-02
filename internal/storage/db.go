@@ -1,16 +1,18 @@
 package storage
 
 import (
-	"database/sql"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
+	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
 )
 
 type DB struct {
-	sqlDB *sql.DB
+	sqlDB *sqlx.DB
 }
 
 func New(dbPath string) (*DB, error) {
@@ -25,9 +27,12 @@ func New(dbPath string) (*DB, error) {
 		}
 	}
 
-	db, err := sql.Open("sqlite", dbPath)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	db, err := sqlx.ConnectContext(ctx, "sqlite", dbPath)
 	if err != nil {
-		return nil, fmt.Errorf("open sqlite db: %w", err)
+		return nil, fmt.Errorf("connect sqlite db: %w", err)
 	}
 
 	db.SetMaxOpenConns(1)
@@ -42,20 +47,15 @@ func New(dbPath string) (*DB, error) {
 		return nil, fmt.Errorf("set busy_timeout pragma: %w", err)
 	}
 
-	if err := migrate(db); err != nil {
+	if err := Migrate(db); err != nil {
 		_ = db.Close()
 		return nil, err
-	}
-
-	if err := db.Ping(); err != nil {
-		_ = db.Close()
-		return nil, fmt.Errorf("ping sqlite db: %w", err)
 	}
 
 	return &DB{sqlDB: db}, nil
 }
 
-func (d *DB) SQL() *sql.DB {
+func (d *DB) SQL() *sqlx.DB {
 	return d.sqlDB
 }
 
