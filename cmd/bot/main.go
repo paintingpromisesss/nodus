@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/paintingpromisesss/cobalt_bot/internal/bot"
+	"github.com/paintingpromisesss/cobalt_bot/internal/app"
 	"github.com/paintingpromisesss/cobalt_bot/internal/config"
 )
 
@@ -12,7 +12,7 @@ func main() {
 	if err != nil {
 		panic(fmt.Sprintf("config error: %v", err))
 	}
-	if err := bot.Run(cfg); err != nil {
-		panic(fmt.Sprintf("bot run error: %v", err))
+	if err := app.Run(cfg); err != nil {
+		panic(fmt.Sprintf("app run error: %v", err))
 	}
 }

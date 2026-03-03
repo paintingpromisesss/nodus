@@ -187,8 +187,28 @@ type MainRequest struct {
 	YoutubeHLS            *bool                 `json:"youtubeHLS,omitempty"`            // youtube only
 }
 
-type MainResponse interface {
-	GetStatus() Status
+type MainResponse struct {
+	Status Status `json:"status"`
+
+	// tunnel / redirect
+	Url      string `json:"url,omitempty"`
+	Filename string `json:"filename,omitempty"`
+
+	// local-processing
+	Type    LocalProcessingType         `json:"type,omitempty"`
+	Service LocalProcessingService      `json:"service,omitempty"`
+	Tunnel  []string                    `json:"tunnel,omitempty"`
+	Output  *OutputObject               `json:"output,omitempty"`
+	Audio   *AudioLocalProcessingObject `json:"audio,omitempty"`
+	IsHLS   *bool                       `json:"isHLS,omitempty"`
+
+	// picker
+	PickerAudio   *string        `json:"-"`
+	AudioFilename *string        `json:"audioFilename,omitempty"`
+	Picker        []PickerObject `json:"picker,omitempty"`
+
+	// error
+	Error *ErrorObject `json:"error,omitempty"`
 }
 
 type MainResponseEnvelope struct {
@@ -201,8 +221,6 @@ type TunnelOrRedirectResponse struct {
 	Filename string `json:"filename"`
 }
 
-func (r TunnelOrRedirectResponse) GetStatus() Status { return r.Status }
-
 type LocalProcessingResponse struct {
 	Status  Status                      `json:"status"`
 	Type    LocalProcessingType         `json:"type"`
@@ -213,8 +231,6 @@ type LocalProcessingResponse struct {
 	IsHLS   *bool                       `json:"isHLS,omitempty"`
 }
 
-func (r LocalProcessingResponse) GetStatus() Status { return r.Status }
-
 type PickerResponse struct {
 	Status        Status         `json:"status"`
 	Audio         *string        `json:"audio,omitempty"`
@@ -222,48 +238,64 @@ type PickerResponse struct {
 	Picker        []PickerObject `json:"picker"`
 }
 
-func (r PickerResponse) GetStatus() Status { return r.Status }
-
 type ErrorResponse struct {
 	Status Status      `json:"status"`
 	Error  ErrorObject `json:"error"`
 }
 
-func (r ErrorResponse) GetStatus() Status { return r.Status }
-
 func ParseMainResponse(data []byte) (MainResponse, error) {
 	var envelope MainResponseEnvelope
 	if err := json.Unmarshal(data, &envelope); err != nil {
-		return nil, fmt.Errorf("decode response envelope: %w", err)
+		return MainResponse{}, fmt.Errorf("decode response envelope: %w", err)
 	}
 
 	switch envelope.Status {
 	case StatusTunnel, StatusRedirect:
 		var r TunnelOrRedirectResponse
 		if err := json.Unmarshal(data, &r); err != nil {
-			return nil, fmt.Errorf("decode %q response: %w", envelope.Status, err)
+			return MainResponse{}, fmt.Errorf("decode %q response: %w", envelope.Status, err)
 		}
-		return r, nil
+		return MainResponse{
+			Status:   r.Status,
+			Url:      r.Url,
+			Filename: r.Filename,
+		}, nil
 	case StatusLocalProcessing:
 		var r LocalProcessingResponse
 		if err := json.Unmarshal(data, &r); err != nil {
-			return nil, fmt.Errorf("decode %q response: %w", envelope.Status, err)
+			return MainResponse{}, fmt.Errorf("decode %q response: %w", envelope.Status, err)
 		}
-		return r, nil
+		return MainResponse{
+			Status:  r.Status,
+			Type:    r.Type,
+			Service: r.Service,
+			Tunnel:  r.Tunnel,
+			Output:  &r.Output,
+			Audio:   r.Audio,
+			IsHLS:   r.IsHLS,
+		}, nil
 	case StatusPicker:
 		var r PickerResponse
 		if err := json.Unmarshal(data, &r); err != nil {
-			return nil, fmt.Errorf("decode %q response: %w", envelope.Status, err)
+			return MainResponse{}, fmt.Errorf("decode %q response: %w", envelope.Status, err)
 		}
-		return r, nil
+		return MainResponse{
+			Status:        r.Status,
+			PickerAudio:   r.Audio,
+			AudioFilename: r.AudioFilename,
+			Picker:        r.Picker,
+		}, nil
 	case StatusError:
 		var r ErrorResponse
 		if err := json.Unmarshal(data, &r); err != nil {
-			return nil, fmt.Errorf("decode %q response: %w", envelope.Status, err)
+			return MainResponse{}, fmt.Errorf("decode %q response: %w", envelope.Status, err)
 		}
-		return r, nil
+		return MainResponse{
+			Status: r.Status,
+			Error:  &r.Error,
+		}, nil
 	default:
-		return nil, fmt.Errorf("unsupported response status %q", envelope.Status)
+		return MainResponse{}, fmt.Errorf("unsupported response status %q", envelope.Status)
 	}
 }
 

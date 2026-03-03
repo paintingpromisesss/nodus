@@ -15,7 +15,7 @@ type DB struct {
 	sqlDB *sqlx.DB
 }
 
-func New(dbPath string) (*DB, error) {
+func New(dbPath string) (*sqlx.DB, error) {
 	if dbPath == "" {
 		return nil, fmt.Errorf("db path is empty")
 	}
@@ -52,16 +52,5 @@ func New(dbPath string) (*DB, error) {
 		return nil, err
 	}
 
-	return &DB{sqlDB: db}, nil
-}
-
-func (d *DB) SQL() *sqlx.DB {
-	return d.sqlDB
-}
-
-func (d *DB) Close() error {
-	if d == nil || d.sqlDB == nil {
-		return nil
-	}
-	return d.sqlDB.Close()
+	return db, nil
 }

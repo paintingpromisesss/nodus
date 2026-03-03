@@ -11,3 +11,4 @@ api-env-variables.md
 
 *.exe
 .idea/
+.vscode/

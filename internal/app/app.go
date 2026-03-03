@@ -1,7 +1,8 @@
-package bot
+package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os/signal"
 	"syscall"
@@ -17,7 +18,13 @@ func Run(cfg config.Config) error {
 	if err != nil {
 		return fmt.Errorf("init logger: %w", err)
 	}
-	defer func() { _ = log.Sync() }()
+	defer func() {
+		if syncErr := log.Sync(); syncErr != nil &&
+			!errors.Is(syncErr, syscall.ENOTTY) &&
+			!errors.Is(syncErr, syscall.EINVAL) {
+			log.Warn("logger sync failed", zap.Error(syncErr))
+		}
+	}()
 
 	sqliteDB, err := storage.New(cfg.DBPath)
 	if err != nil {
