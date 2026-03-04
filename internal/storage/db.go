@@ -15,7 +15,7 @@ type DB struct {
 	sqlDB *sqlx.DB
 }
 
-func New(dbPath string) (*sqlx.DB, error) {
+func New(dbPath string) (*DB, error) {
 	if dbPath == "" {
 		return nil, fmt.Errorf("db path is empty")
 	}
@@ -47,10 +47,14 @@ func New(dbPath string) (*sqlx.DB, error) {
 		return nil, fmt.Errorf("set busy_timeout pragma: %w", err)
 	}
 
-	if err := Migrate(db); err != nil {
+	if err := Migrate(dbPath); err != nil {
 		_ = db.Close()
 		return nil, err
 	}
 
-	return db, nil
+	return &DB{sqlDB: db}, nil
+}
+
+func (db *DB) Close() error {
+	return db.sqlDB.Close()
 }

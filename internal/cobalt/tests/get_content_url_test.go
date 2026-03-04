@@ -12,7 +12,7 @@ import (
 	"github.com/paintingpromisesss/cobalt_bot/internal/cobalt"
 )
 
-func TestGetURLSuccessTunnelResponse(t *testing.T) {
+func TestGetContentURLSuccessTunnelResponse(t *testing.T) {
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -40,7 +40,7 @@ func TestGetURLSuccessTunnelResponse(t *testing.T) {
 	defer server.Close()
 
 	client := cobalt.NewCobaltClient(server.URL, time.Second)
-	got, err := client.GetURL(context.Background(), cobalt.MainRequest{Url: "https://youtube.com/watch?v=abc"})
+	got, err := client.GetContentURL(context.Background(), cobalt.MainRequest{Url: "https://youtube.com/watch?v=abc"})
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
@@ -56,7 +56,7 @@ func TestGetURLSuccessTunnelResponse(t *testing.T) {
 	}
 }
 
-func TestGetURLSuccessPickerResponse(t *testing.T) {
+func TestGetContentURLSuccessPickerResponse(t *testing.T) {
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -71,7 +71,7 @@ func TestGetURLSuccessPickerResponse(t *testing.T) {
 	defer server.Close()
 
 	client := cobalt.NewCobaltClient(server.URL, time.Second)
-	got, err := client.GetURL(context.Background(), cobalt.MainRequest{Url: "https://example.com/post"})
+	got, err := client.GetContentURL(context.Background(), cobalt.MainRequest{Url: "https://example.com/post"})
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
@@ -90,7 +90,7 @@ func TestGetURLSuccessPickerResponse(t *testing.T) {
 	}
 }
 
-func TestGetURLReturnsErrorOnNon2xx(t *testing.T) {
+func TestGetContentURLReturnsErrorOnNon2xx(t *testing.T) {
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -99,7 +99,7 @@ func TestGetURLReturnsErrorOnNon2xx(t *testing.T) {
 	defer server.Close()
 
 	client := cobalt.NewCobaltClient(server.URL, time.Second)
-	_, err := client.GetURL(context.Background(), cobalt.MainRequest{Url: "https://example.com"})
+	_, err := client.GetContentURL(context.Background(), cobalt.MainRequest{Url: "https://example.com"})
 	if err == nil {
 		t.Fatalf("expected error, got nil")
 	}
@@ -108,7 +108,7 @@ func TestGetURLReturnsErrorOnNon2xx(t *testing.T) {
 	}
 }
 
-func TestGetURLReturnsErrorOnUnsupportedStatus(t *testing.T) {
+func TestGetContentURLReturnsErrorOnUnsupportedStatus(t *testing.T) {
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -118,7 +118,7 @@ func TestGetURLReturnsErrorOnUnsupportedStatus(t *testing.T) {
 	defer server.Close()
 
 	client := cobalt.NewCobaltClient(server.URL, time.Second)
-	_, err := client.GetURL(context.Background(), cobalt.MainRequest{Url: "https://example.com"})
+	_, err := client.GetContentURL(context.Background(), cobalt.MainRequest{Url: "https://example.com"})
 	if err == nil {
 		t.Fatalf("expected error, got nil")
 	}

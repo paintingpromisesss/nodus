@@ -3,6 +3,8 @@ package cobalt
 import (
 	"encoding/json"
 	"fmt"
+
+	"github.com/paintingpromisesss/cobalt_bot/internal/storage"
 )
 
 type AudioBitrate string
@@ -302,4 +304,13 @@ func ParseMainResponse(data []byte) (MainResponse, error) {
 type InstanceResponse struct {
 	Cobalt CobaltObject `json:"cobalt"`
 	Git    GitObject    `json:"git"`
+}
+
+func GetCobaltRequest(url string, settings storage.UserSettings) MainRequest {
+	return MainRequest{
+		Url:          url,
+		AudioBitrate: AudioBitrate(settings.AudioBitrate),
+		AudioFormat:  AudioFormat(settings.AudioFormat),
+		VideoQuality: VideoQuality(settings.VideoQuality),
+	}
 }

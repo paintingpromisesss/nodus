@@ -3,21 +3,26 @@ package app
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os/signal"
 	"syscall"
 
+	"github.com/paintingpromisesss/cobalt_bot/internal/cobalt"
 	"github.com/paintingpromisesss/cobalt_bot/internal/config"
+	"github.com/paintingpromisesss/cobalt_bot/internal/downloader"
 	"github.com/paintingpromisesss/cobalt_bot/internal/logger"
+	"github.com/paintingpromisesss/cobalt_bot/internal/queue"
 	"github.com/paintingpromisesss/cobalt_bot/internal/storage"
 	"github.com/paintingpromisesss/cobalt_bot/internal/telegram"
+	"github.com/paintingpromisesss/cobalt_bot/internal/telegram/handlers"
+	"github.com/paintingpromisesss/cobalt_bot/internal/telegram/sender"
+	"github.com/paintingpromisesss/cobalt_bot/internal/urlvalidator"
 	"go.uber.org/zap"
 )
 
 func Run(cfg config.Config) error {
 	log, err := logger.New(cfg.LogLevel)
 	if err != nil {
-		return fmt.Errorf("init logger: %w", err)
+		return err
 	}
 	defer func() {
 		if syncErr := log.Sync(); syncErr != nil &&
@@ -27,12 +32,13 @@ func Run(cfg config.Config) error {
 		}
 	}()
 
-	sqliteDB, err := storage.New(cfg.DBPath)
+	storage, err := storage.New(cfg.DBPath)
 	if err != nil {
-		return fmt.Errorf("init db: %w", err)
+		log.Error("init db failed", zap.Error(err))
+		return err
 	}
 	defer func() {
-		if closeErr := sqliteDB.Close(); closeErr != nil {
+		if closeErr := storage.Close(); closeErr != nil {
 			log.Warn("db close failed", zap.Error(closeErr))
 		}
 	}()
@@ -53,7 +59,31 @@ func Run(cfg config.Config) error {
 
 	tgBot, err := telegram.New(cfg.TelegramBotToken, log)
 	if err != nil {
-		return fmt.Errorf("init telegram bot: %w", err)
+		log.Error("init telegram bot failed", zap.Error(err))
+		return err
+	}
+
+	queueManager := queue.NewRequestQueue()
+
+	cobaltClient := cobalt.NewCobaltClient(cfg.CobaltBaseURL, cfg.RequestTimeout)
+
+	downloader := downloader.NewDownloader(cfg.DownloadTimeout, cfg.TempDir, cfg.MaxFileBytes)
+	urlValidator := urlvalidator.NewURLValidator(cfg.RequestTimeout)
+
+	sender := sender.NewFileSender()
+
+	instanceInfo, err := cobaltClient.GetInstanceInfo(ctx)
+	if err != nil {
+		log.Error("get instance info failed", zap.Error(err))
+		return err
+	}
+
+	availableServices := instanceInfo.Cobalt.Services
+
+	handler := handlers.NewHandler(ctx, tgBot, storage, queueManager, log, cobaltClient, downloader, urlValidator, sender, availableServices)
+	if err := handler.RegisterHandlers(); err != nil {
+		log.Error("register handlers failed", zap.Error(err))
+		return err
 	}
 
 	tgBot.Run(ctx)

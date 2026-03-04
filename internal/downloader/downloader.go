@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"mime"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -13,12 +15,14 @@ import (
 )
 
 var ErrFileTooLarge = errors.New("file exceeds max size")
+var ErrEmptyFile = errors.New("downloaded file is empty")
 
 type DownloadResult struct {
-	Path        string
-	Filename    string
-	Size        int64
-	ContentType string
+	Path         string
+	Filename     string
+	Size         int64
+	ContentType  string
+	DetectedMIME string
 }
 
 type Downloader struct {
@@ -79,6 +83,10 @@ func (d *Downloader) Download(ctx context.Context, fileURL, filename string) (Do
 		}
 		return DownloadResult{}, fmt.Errorf("download file: %w", err)
 	}
+	if written == 0 {
+		cleanup()
+		return DownloadResult{}, ErrEmptyFile
+	}
 
 	if err := file.Close(); err != nil {
 		_ = os.Remove(filePath)
@@ -86,9 +94,53 @@ func (d *Downloader) Download(ctx context.Context, fileURL, filename string) (Do
 	}
 
 	return DownloadResult{
-		Path:        filePath,
-		Filename:    filename,
-		Size:        written,
-		ContentType: responseHeaders.Get("Content-Type"),
+		Path:         filePath,
+		Filename:     filename,
+		Size:         written,
+		ContentType:  responseHeaders.Get("Content-Type"),
+		DetectedMIME: detectMIME(filePath, responseHeaders.Get("Content-Type"), filename),
 	}, nil
+}
+
+func detectMIME(filePath, contentTypeHeader, filename string) string {
+	headerMIME := normalizeMIME(contentTypeHeader)
+	if headerMIME != "" && headerMIME != "application/octet-stream" {
+		return headerMIME
+	}
+
+	var sniffMIME string
+	if file, err := os.Open(filePath); err == nil {
+		defer file.Close()
+		buf := make([]byte, 512)
+		if n, readErr := file.Read(buf); readErr == nil || n > 0 {
+			sniffMIME = normalizeMIME(http.DetectContentType(buf[:n]))
+		}
+	}
+	if sniffMIME != "" && sniffMIME != "application/octet-stream" {
+		return sniffMIME
+	}
+
+	if headerMIME != "" {
+		return headerMIME
+	}
+
+	extMIME := normalizeMIME(mime.TypeByExtension(strings.ToLower(filepath.Ext(filename))))
+	if extMIME != "" {
+		return extMIME
+	}
+
+	if sniffMIME != "" {
+		return sniffMIME
+	}
+
+	return "application/octet-stream"
+}
+
+func normalizeMIME(value string) string {
+	if value == "" {
+		return ""
+	}
+
+	parts := strings.Split(value, ";")
+	return strings.TrimSpace(parts[0])
 }

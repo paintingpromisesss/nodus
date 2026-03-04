@@ -5,14 +5,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/paintingpromisesss/cobalt_bot/internal/telegram/handlers"
 	"go.uber.org/zap"
 	tele "gopkg.in/telebot.v4"
 )
 
 type Bot struct {
-	bot *tele.Bot
-	log *zap.Logger
+	Bot *tele.Bot
+	Log *zap.Logger
 }
 
 func New(token string, log *zap.Logger) (*Bot, error) {
@@ -29,20 +28,18 @@ func New(token string, log *zap.Logger) (*Bot, error) {
 		return nil, fmt.Errorf("create telegram bot: %w", err)
 	}
 
-	handlers.Register(tb)
-
 	return &Bot{
-		bot: tb,
-		log: log,
+		Bot: tb,
+		Log: log,
 	}, nil
 }
 
 func (b *Bot) Run(ctx context.Context) {
-	b.log.Info("telegram bot started", zap.String("bot_username", b.bot.Me.Username))
+	b.Log.Info("telegram bot started", zap.String("bot_username", b.Bot.Me.Username))
 
-	go b.bot.Start()
+	go b.Bot.Start()
 
 	<-ctx.Done()
-	b.bot.Stop()
-	b.log.Info("telegram bot stopped")
+	b.Bot.Stop()
+	b.Log.Info("telegram bot stopped")
 }

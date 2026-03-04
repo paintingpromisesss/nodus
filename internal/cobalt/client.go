@@ -40,7 +40,7 @@ func (c *CobaltClient) GetInstanceInfo(ctx context.Context) (InstanceResponse, e
 	return instanceInfo, err
 }
 
-func (c *CobaltClient) GetURL(ctx context.Context, request MainRequest) (MainResponse, error) {
+func (c *CobaltClient) GetContentURL(ctx context.Context, request MainRequest) (MainResponse, error) {
 	var output json.RawMessage
 	requestHeaders := http.Header{}
 	requestHeaders.Set("Accept", "application/json")

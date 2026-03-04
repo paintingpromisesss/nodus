@@ -37,6 +37,9 @@ func TestDownloadSuccess(t *testing.T) {
 	if got.ContentType != "video/mp4" {
 		t.Fatalf("unexpected content-type: %q", got.ContentType)
 	}
+	if got.DetectedMIME != "video/mp4" {
+		t.Fatalf("unexpected detected mime: %q", got.DetectedMIME)
+	}
 	if filepath.Dir(got.Path) != tempDir {
 		t.Fatalf("temp file is outside temp dir: %q", got.Path)
 	}
@@ -46,6 +49,33 @@ func TestDownloadSuccess(t *testing.T) {
 	}
 	if string(content) != "hello" {
 		t.Fatalf("unexpected file contents: %q", string(content))
+	}
+}
+
+func TestDownloadDetectMIMEFromContentWhenHeaderGeneric(t *testing.T) {
+	t.Parallel()
+
+	// Minimal JPEG header bytes, enough for DetectContentType.
+	jpegBytes := []byte{0xFF, 0xD8, 0xFF, 0xE0, 'J', 'F', 'I', 'F', 0x00, 0x01}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/octet-stream")
+		_, _ = w.Write(jpegBytes)
+	}))
+	defer server.Close()
+
+	tempDir := t.TempDir()
+	d := NewDownloader(time.Second, tempDir, 1024)
+
+	got, err := d.Download(context.Background(), server.URL+"/img", "image.jpg")
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	if got.ContentType != "application/octet-stream" {
+		t.Fatalf("unexpected content-type: %q", got.ContentType)
+	}
+	if got.DetectedMIME != "image/jpeg" {
+		t.Fatalf("unexpected detected mime: %q", got.DetectedMIME)
 	}
 }
 

@@ -27,7 +27,7 @@ type userSettingsRow struct {
 	YoutubeDubLang sql.NullString `db:"youtube_dub_lang"`
 }
 
-func (d *DB) GetUserSettings(userID int64) (UserSettings, error) {
+func (d *DB) GetUserSettings(ctx context.Context, userID int64) (UserSettings, error) {
 	const query = `
 SELECT
 	user_id,
@@ -41,7 +41,7 @@ WHERE user_id = ?;
 `
 
 	var row userSettingsRow
-	err := d.sqlDB.GetContext(context.Background(), &row, query, userID)
+	err := d.sqlDB.GetContext(ctx, &row, query, userID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return UserSettings{}, ErrUserSettingsNotFound
@@ -52,7 +52,7 @@ WHERE user_id = ?;
 	return row.toUserSettings(), nil
 }
 
-func (d *DB) UpsertUserSettings(settings UserSettings) error {
+func (d *DB) UpsertUserSettings(ctx context.Context, settings UserSettings) error {
 	const query = `
 INSERT INTO user_default_settings (
 	user_id,
@@ -72,7 +72,7 @@ ON CONFLICT(user_id) DO UPDATE SET
 `
 
 	_, err := d.sqlDB.ExecContext(
-		context.Background(),
+		ctx,
 		query,
 		settings.UserID,
 		settings.AudioBitrate,
@@ -88,10 +88,22 @@ ON CONFLICT(user_id) DO UPDATE SET
 	return nil
 }
 
-func (d *DB) DeleteUserSettings(userID int64) error {
+func (d *DB) EnsureUserSettings(ctx context.Context, userID int64) error {
+	const query = `
+	INSERT INTO user_default_settings (user_id)
+	VALUES (?)
+	ON CONFLICT(user_id) DO NOTHING;`
+	_, err := d.sqlDB.ExecContext(ctx, query, userID)
+	if err != nil {
+		return fmt.Errorf("ensure user settings by user_id=%d: %w", userID, err)
+	}
+	return nil
+}
+
+func (d *DB) DeleteUserSettings(ctx context.Context, userID int64) error {
 	const query = `DELETE FROM user_default_settings WHERE user_id = ?;`
 
-	result, err := d.sqlDB.ExecContext(context.Background(), query, userID)
+	result, err := d.sqlDB.ExecContext(ctx, query, userID)
 	if err != nil {
 		return fmt.Errorf("delete user settings by user_id=%d: %w", userID, err)
 	}
@@ -136,4 +148,12 @@ func nullStringToSubtitleLanguage(v sql.NullString) *string {
 
 	lang := v.String
 	return &lang
+}
+
+func GetDefaultUserSettings() UserSettings {
+	return UserSettings{
+		AudioBitrate: "128",
+		AudioFormat:  "mp3",
+		VideoQuality: "1080",
+	}
 }
