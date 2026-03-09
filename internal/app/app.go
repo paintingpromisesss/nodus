@@ -17,6 +17,7 @@ import (
 	pickersession "github.com/paintingpromisesss/cobalt_bot/internal/telegram/picker_session"
 	"github.com/paintingpromisesss/cobalt_bot/internal/telegram/sender"
 	"github.com/paintingpromisesss/cobalt_bot/internal/urlvalidator"
+	"github.com/paintingpromisesss/cobalt_bot/internal/ytdlp"
 	"go.uber.org/zap"
 )
 
@@ -58,7 +59,7 @@ func Run(cfg config.Config) error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
 
-	tgBot, err := telegram.New(cfg.TelegramBotToken, log)
+	tgBot, err := telegram.New(cfg.TelegramBotToken, cfg.TelegramBotAPIURL, log)
 	if err != nil {
 		log.Error("init telegram bot failed", zap.Error(err))
 		return err
@@ -69,7 +70,8 @@ func Run(cfg config.Config) error {
 	cobaltClient := cobalt.NewCobaltClient(cfg.CobaltBaseURL, cfg.RequestTimeout)
 
 	downloader := downloader.NewDownloader(cfg.DownloadTimeout, cfg.TempDir, cfg.MaxFileBytes)
-	sender := sender.NewFileSender()
+	ytDownloader := ytdlp.New(cfg.TempDir)
+	sender := sender.NewFileSender(log)
 
 	instanceInfo, err := cobaltClient.GetInstanceInfo(ctx)
 	if err != nil {
@@ -81,7 +83,7 @@ func Run(cfg config.Config) error {
 	urlValidator := urlvalidator.NewURLValidator(availableServices)
 	pickerSessionManager := pickersession.NewPickerSessionManager(cfg.PickerSessionManagerTTL)
 
-	handler := handlers.NewHandler(ctx, tgBot, storage, queueManager, log, cobaltClient, downloader, urlValidator, sender, availableServices, pickerSessionManager)
+	handler := handlers.NewHandler(ctx, tgBot, storage, queueManager, log, cobaltClient, downloader, ytDownloader, urlValidator, sender, availableServices, pickerSessionManager)
 	if err := handler.RegisterHandlers(); err != nil {
 		log.Error("register handlers failed", zap.Error(err))
 		return err

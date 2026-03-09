@@ -20,6 +20,7 @@ func (h *Handler) handleMessage(c tele.Context) error {
 
 	userID := c.Sender().ID
 	username := c.Sender().Username
+	user := c.Recipient()
 	url := c.Text()
 	sessionStartedAt := time.Now()
 
@@ -58,7 +59,7 @@ func (h *Handler) handleMessage(c tele.Context) error {
 
 	cobaltRequest := cobalt.GetCobaltRequest(url, settings)
 
-	statusMsg, err := c.Bot().Send(c.Recipient(), "Ваш запрос принят. Получаю информацию...")
+	statusMsg, err := c.Bot().Send(user, "Ваш запрос принят. Получаю информацию...")
 	if err != nil {
 		return err
 	}
@@ -80,7 +81,7 @@ func (h *Handler) handleMessage(c tele.Context) error {
 
 		switch resp.Status {
 		case cobalt.StatusRedirect, cobalt.StatusTunnel:
-			if err := h.handleMessageStatusSingle(c, downloadCtx, statusMsg, userID, resp); err != nil {
+			if err := h.handleMessageStatusSingle(c, downloadCtx, statusMsg, user, userID, url, resp); err != nil {
 				return err
 			}
 		case cobalt.StatusPicker:
@@ -104,8 +105,8 @@ func (h *Handler) handleMessage(c tele.Context) error {
 			zap.Error(err),
 		)
 
-		if _, editErr := c.Bot().Edit(statusMsg, pickerErrorToText(err)); editErr != nil {
-			h.logger.Error("failed to edit status message with error", zap.Int64("user_id", userID), zap.String("username", username), zap.Error(editErr))
+		if _, err := c.Bot().Edit(statusMsg, pickerErrorToText(err)); err != nil {
+			h.logger.Error("failed to edit status message with error", zap.Int64("user_id", userID), zap.String("username", username), zap.Error(err))
 		}
 
 		return err

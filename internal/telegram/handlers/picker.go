@@ -50,7 +50,7 @@ func (h *Handler) handlePickerCallback(c tele.Context) error {
 		err = h.queueManager.Run(userID, func() error {
 			downloadCtx, cancel := context.WithTimeout(h.appCtx, 10*time.Minute)
 			defer cancel()
-			return h.DownloadSelectedOptions(c, statusMsg, downloadCtx, userID, options)
+			return h.DownloadAndSendSelectedOptions(c, statusMsg, downloadCtx, userID, c.Recipient(), options)
 		})
 
 		if err != nil {

@@ -14,9 +14,10 @@ type Bot struct {
 	Log *zap.Logger
 }
 
-func New(token string, log *zap.Logger) (*Bot, error) {
+func New(token string, apiURL string, log *zap.Logger) (*Bot, error) {
 	tb, err := tele.NewBot(tele.Settings{
 		Token: token,
+		URL:   apiURL,
 		Poller: &tele.LongPoller{
 			Timeout: 10 * time.Second,
 		},

@@ -11,6 +11,7 @@ import (
 	pickersession "github.com/paintingpromisesss/cobalt_bot/internal/telegram/picker_session"
 	"github.com/paintingpromisesss/cobalt_bot/internal/telegram/sender"
 	"github.com/paintingpromisesss/cobalt_bot/internal/urlvalidator"
+	"github.com/paintingpromisesss/cobalt_bot/internal/ytdlp"
 	"go.uber.org/zap"
 	tele "gopkg.in/telebot.v4"
 )
@@ -23,13 +24,14 @@ type Handler struct {
 	logger               *zap.Logger
 	cobaltClient         *cobalt.CobaltClient
 	downloader           *downloader.Downloader
+	ytDownloader         *ytdlp.Downloader
 	urlValidator         *urlvalidator.URLValidator
 	sender               *sender.FileSender
 	availableServices    []string
 	pickerSessionManager *pickersession.PickerSessionManager
 }
 
-func NewHandler(appCtx context.Context, tb *telegram.Bot, storage *storage.DB, queueManager *queue.RequestQueue, logger *zap.Logger, cobaltClient *cobalt.CobaltClient, downloader *downloader.Downloader, urlValidator *urlvalidator.URLValidator, sender *sender.FileSender, availableServices []string, pickerSessionManager *pickersession.PickerSessionManager) *Handler {
+func NewHandler(appCtx context.Context, tb *telegram.Bot, storage *storage.DB, queueManager *queue.RequestQueue, logger *zap.Logger, cobaltClient *cobalt.CobaltClient, downloader *downloader.Downloader, ytDownloader *ytdlp.Downloader, urlValidator *urlvalidator.URLValidator, sender *sender.FileSender, availableServices []string, pickerSessionManager *pickersession.PickerSessionManager) *Handler {
 	return &Handler{
 		appCtx:               appCtx,
 		tb:                   tb,
@@ -38,6 +40,7 @@ func NewHandler(appCtx context.Context, tb *telegram.Bot, storage *storage.DB, q
 		logger:               logger,
 		cobaltClient:         cobaltClient,
 		downloader:           downloader,
+		ytDownloader:         ytDownloader,
 		urlValidator:         urlValidator,
 		sender:               sender,
 		availableServices:    availableServices,

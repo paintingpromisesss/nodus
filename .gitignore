@@ -16,3 +16,5 @@ api-env-variables.md
 scratch/
 
 rest_client/
+
+.gocache/

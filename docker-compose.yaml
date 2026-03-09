@@ -3,8 +3,13 @@ services:
     image: metacubex/mihomo:v1.19.20
     container_name: mihomo
     restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
     expose:
       - "2080"
+      - "8081"
     volumes:
       - ./mihomo/config.yaml:/root/.config/mihomo/config.yaml:ro
       - ./mihomo/providers:/root/.config/mihomo/providers
@@ -62,8 +67,10 @@ services:
       dockerfile: Dockerfile
     container_name: tg_bot
     restart: unless-stopped
+    init: true
     environment:
       TELEGRAM_BOT_TOKEN: ${TG_BOT_TOKEN}
+      TELEGRAM_BOT_API_URL: http://mihomo:8081
       COBALT_BASE_URL: ${TG_BOT_COBALT_BASE_URL}
       MAX_FILE_BYTES: ${TG_BOT_MAX_FILE_BYTES}
       DB_PATH: ${TG_BOT_DB_PATH}
@@ -78,3 +85,25 @@ services:
     depends_on:
       cobalt:
         condition: service_healthy
+      telegram-bot-api:
+        condition: service_started
+  
+  telegram-bot-api:
+    image: aiogram/telegram-bot-api:latest
+    container_name: telegram-bot-api
+    restart: unless-stopped
+    network_mode: "service:mihomo"
+    environment:
+      TELEGRAM_API_ID: ${TG_BOT_API_ID}
+      TELEGRAM_API_HASH: ${TG_BOT_API_HASH}
+      TELEGRAM_LOCAL: "1"
+      TELEGRAM_HTTP_IP_ADDRESS: "0.0.0.0"
+      TELEGRAM_HTTP_PORT: "8081"
+      TELEGRAM_MAX_WEBHOOK_CONNECTIONS: "100"
+      TELEGRAM_VERBOSITY: "1"
+    volumes:
+      - telegram-bot-api-data:/var/lib/telegram-bot-api
+
+volumes:
+  telegram-bot-api-data:
+      

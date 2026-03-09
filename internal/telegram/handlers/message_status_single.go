@@ -2,23 +2,27 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/paintingpromisesss/cobalt_bot/internal/cobalt"
+	"github.com/paintingpromisesss/cobalt_bot/internal/downloader"
 	"go.uber.org/zap"
 	tele "gopkg.in/telebot.v4"
 )
 
-// handleMessageStatusSingle реализует обработку статусов Redirect и Tunnel от Cobalt, которые возвращают прямой URL для загрузки одиночного файла.
-func (h *Handler) handleMessageStatusSingle(c tele.Context, ctx context.Context, statusMsg *tele.Message, userID int64, cobaltResponse cobalt.MainResponse) error {
+func (h *Handler) handleMessageStatusSingle(c tele.Context, ctx context.Context, statusMsg *tele.Message, user tele.Recipient, userID int64, sourceURL string, cobaltResponse cobalt.MainResponse) error {
 	if _, err := c.Bot().Edit(statusMsg, "Информация о файле получена. Имя файла: "+cobaltResponse.Filename+". Начинаю загрузку..."); err != nil {
 		return err
 	}
-	downloadResult, err := h.downloader.Download(ctx, cobaltResponse.Url, cobaltResponse.Filename)
+
+	downloadResult, err := h.downloadSingleWithFallback(c, ctx, statusMsg, userID, sourceURL, cobaltResponse)
 	if err != nil {
 		h.logger.Error(
 			"failed to download file",
 			zap.Int64("user_id", userID),
+			zap.String("source_url", sourceURL),
 			zap.String("url", cobaltResponse.Url),
 			zap.String("filename", cobaltResponse.Filename),
 			zap.Error(err),
@@ -46,7 +50,7 @@ func (h *Handler) handleMessageStatusSingle(c tele.Context, ctx context.Context,
 
 	defer cleanupTempFile(h.logger, downloadResult.Path)
 
-	if err := h.sender.SendFile(c, downloadResult.Path, downloadResult.Filename, downloadResult.DetectedMIME, statusMsg); err != nil {
+	if err := h.sender.SendFile(c, downloadResult.Path, downloadResult.Filename, downloadResult.DetectedMIME, user); err != nil {
 		return err
 	}
 
@@ -59,4 +63,33 @@ func (h *Handler) handleMessageStatusSingle(c tele.Context, ctx context.Context,
 	)
 
 	return nil
+}
+
+func (h *Handler) downloadSingleWithFallback(c tele.Context, ctx context.Context, statusMsg *tele.Message, userID int64, sourceURL string, cobaltResponse cobalt.MainResponse) (downloader.DownloadResult, error) {
+	result, err := h.downloader.Download(ctx, cobaltResponse.Url, cobaltResponse.Filename)
+	if err == nil {
+		return result, nil
+	}
+
+	if !errors.Is(err, downloader.ErrEmptyFile) || !isYouTubeURL(sourceURL) {
+		return downloader.DownloadResult{}, err
+	}
+
+	h.logger.Warn(
+		"cobalt returned empty file for youtube, falling back to yt-dlp",
+		zap.Int64("user_id", userID),
+		zap.String("source_url", sourceURL),
+		zap.String("filename", cobaltResponse.Filename),
+	)
+
+	if _, err := c.Bot().Edit(statusMsg, "Источник вернул пустой файл. Пробую резервный способ загрузки для YouTube..."); err != nil {
+		return downloader.DownloadResult{}, err
+	}
+
+	return h.ytDownloader.Download(ctx, sourceURL, cobaltResponse.Filename)
+}
+
+func isYouTubeURL(value string) bool {
+	url := strings.ToLower(strings.TrimSpace(value))
+	return strings.Contains(url, "youtube.com/") || strings.Contains(url, "youtu.be/")
 }

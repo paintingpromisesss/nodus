@@ -47,7 +47,7 @@ func (h *Handler) renderPickerKeyboard(c tele.Context, statusMsg *tele.Message, 
 	return err
 }
 
-func (h *Handler) DownloadSelectedOptions(c tele.Context, statusMsg *tele.Message, downloadCtx context.Context, userID int64, options []pickersession.PickerOption) error {
+func (h *Handler) DownloadAndSendSelectedOptions(c tele.Context, statusMsg *tele.Message, downloadCtx context.Context, userID int64, user tele.Recipient, options []pickersession.PickerOption) error {
 	if len(options) == 0 {
 		return pickersession.ErrNoOptionsSelected
 	}
@@ -84,7 +84,7 @@ func (h *Handler) DownloadSelectedOptions(c tele.Context, statusMsg *tele.Messag
 		if _, err := c.Bot().Edit(statusMsg, "Загрузка завершена. Отправляю файл..."); err != nil {
 			return err
 		}
-		if err := h.sender.SendFile(c, result.Path, result.Filename, result.DetectedMIME, statusMsg); err != nil {
+		if err := h.sender.SendFile(c, result.Path, result.Filename, result.DetectedMIME, user); err != nil {
 			return err
 		}
 		return nil
@@ -105,7 +105,7 @@ func (h *Handler) DownloadSelectedOptions(c tele.Context, statusMsg *tele.Messag
 			album = append(album, buildAlbumItem(result.Path, result.Filename, result.DetectedMIME))
 		}
 
-		if _, err := c.Bot().SendAlbum(c.Recipient(), album); err != nil {
+		if _, err := c.Bot().SendAlbum(user, album); err != nil {
 			return fmt.Errorf("failed to send album: %w", err)
 		}
 	}
