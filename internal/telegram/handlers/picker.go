@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"time"
 
 	"go.uber.org/zap"
 	tele "gopkg.in/telebot.v4"
@@ -48,7 +47,7 @@ func (h *Handler) handlePickerCallback(c tele.Context) error {
 		}
 
 		err = h.queueManager.Run(userID, func() error {
-			downloadCtx, cancel := context.WithTimeout(h.appCtx, 10*time.Minute)
+			downloadCtx, cancel := context.WithTimeout(h.appCtx, h.downloadTimeout)
 			defer cancel()
 			return h.DownloadAndSendSelectedOptions(c, statusMsg, downloadCtx, userID, c.Recipient(), options)
 		})

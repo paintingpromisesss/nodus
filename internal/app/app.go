@@ -53,6 +53,8 @@ func Run(cfg config.Config) error {
 		zap.String("temp_dir", cfg.TempDir),
 		zap.Duration("request_timeout", cfg.RequestTimeout),
 		zap.Duration("download_timeout", cfg.DownloadTimeout),
+		zap.Duration("ffprobe_timeout", cfg.FFprobeTimeout),
+		zap.Duration("ffmpeg_timeout", cfg.FFmpegTimeout),
 		zap.String("log_level", cfg.LogLevel),
 	)
 
@@ -71,7 +73,7 @@ func Run(cfg config.Config) error {
 
 	downloader := downloader.NewDownloader(cfg.DownloadTimeout, cfg.TempDir, cfg.MaxFileBytes)
 	ytDownloader := ytdlp.New(cfg.TempDir)
-	sender := sender.NewFileSender(log)
+	sender := sender.NewFileSender(log, cfg.FFprobeTimeout, cfg.FFmpegTimeout)
 
 	instanceInfo, err := cobaltClient.GetInstanceInfo(ctx)
 	if err != nil {
@@ -81,9 +83,24 @@ func Run(cfg config.Config) error {
 
 	availableServices := instanceInfo.Cobalt.Services
 	urlValidator := urlvalidator.NewURLValidator(availableServices)
-	pickerSessionManager := pickersession.NewPickerSessionManager(cfg.PickerSessionManagerTTL)
+	pickerSessionManager := pickersession.NewPickerSessionManager(ctx, cfg.PickerSessionManagerTTL, cfg.PickerSessionManagerCleanupInterval)
 
-	handler := handlers.NewHandler(ctx, tgBot, storage, queueManager, log, cobaltClient, downloader, ytDownloader, urlValidator, sender, availableServices, pickerSessionManager)
+	handler := handlers.NewHandler(
+		ctx,
+		cfg.RequestTimeout,
+		cfg.DownloadTimeout,
+		tgBot,
+		storage,
+		queueManager,
+		log,
+		cobaltClient,
+		downloader,
+		ytDownloader,
+		urlValidator,
+		sender,
+		availableServices,
+		pickerSessionManager,
+	)
 	if err := handler.RegisterHandlers(); err != nil {
 		log.Error("register handlers failed", zap.Error(err))
 		return err

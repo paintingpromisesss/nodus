@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"time"
 
 	"github.com/paintingpromisesss/cobalt_bot/internal/cobalt"
 	"github.com/paintingpromisesss/cobalt_bot/internal/downloader"
@@ -18,6 +19,8 @@ import (
 
 type Handler struct {
 	appCtx               context.Context
+	requestTimeout       time.Duration
+	downloadTimeout      time.Duration
 	tb                   *telegram.Bot
 	storage              *storage.DB
 	queueManager         *queue.RequestQueue
@@ -31,9 +34,11 @@ type Handler struct {
 	pickerSessionManager *pickersession.PickerSessionManager
 }
 
-func NewHandler(appCtx context.Context, tb *telegram.Bot, storage *storage.DB, queueManager *queue.RequestQueue, logger *zap.Logger, cobaltClient *cobalt.CobaltClient, downloader *downloader.Downloader, ytDownloader *ytdlp.Downloader, urlValidator *urlvalidator.URLValidator, sender *sender.FileSender, availableServices []string, pickerSessionManager *pickersession.PickerSessionManager) *Handler {
+func NewHandler(appCtx context.Context, requestTimeout time.Duration, downloadTimeout time.Duration, tb *telegram.Bot, storage *storage.DB, queueManager *queue.RequestQueue, logger *zap.Logger, cobaltClient *cobalt.CobaltClient, downloader *downloader.Downloader, ytDownloader *ytdlp.Downloader, urlValidator *urlvalidator.URLValidator, sender *sender.FileSender, availableServices []string, pickerSessionManager *pickersession.PickerSessionManager) *Handler {
 	return &Handler{
 		appCtx:               appCtx,
+		requestTimeout:       requestTimeout,
+		downloadTimeout:      downloadTimeout,
 		tb:                   tb,
 		storage:              storage,
 		queueManager:         queueManager,

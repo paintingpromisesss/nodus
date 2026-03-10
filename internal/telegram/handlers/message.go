@@ -13,8 +13,8 @@ import (
 )
 
 func (h *Handler) handleMessage(c tele.Context) error {
-	metaCtx, cancelMeta := context.WithTimeout(h.appCtx, 30*time.Second)
-	downloadCtx, cancelDownload := context.WithTimeout(h.appCtx, 10*time.Minute)
+	metaCtx, cancelMeta := context.WithTimeout(h.appCtx, h.requestTimeout)
+	downloadCtx, cancelDownload := context.WithTimeout(h.appCtx, h.downloadTimeout)
 	defer cancelMeta()
 	defer cancelDownload()
 

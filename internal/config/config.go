@@ -10,16 +10,19 @@ import (
 )
 
 type Config struct {
-	TelegramBotToken        string
-	TelegramBotAPIURL       string
-	CobaltBaseURL           string
-	MaxFileBytes            int64
-	DBPath                  string
-	TempDir                 string
-	RequestTimeout          time.Duration
-	DownloadTimeout         time.Duration
-	PickerSessionManagerTTL time.Duration
-	LogLevel                string
+	TelegramBotToken                    string
+	TelegramBotAPIURL                   string
+	CobaltBaseURL                       string
+	MaxFileBytes                        int64
+	DBPath                              string
+	TempDir                             string
+	RequestTimeout                      time.Duration
+	DownloadTimeout                     time.Duration
+	FFprobeTimeout                      time.Duration
+	FFmpegTimeout                       time.Duration
+	PickerSessionManagerTTL             time.Duration
+	PickerSessionManagerCleanupInterval time.Duration
+	LogLevel                            string
 }
 
 func Load() (Config, error) {
@@ -64,12 +67,36 @@ func Load() (Config, error) {
 		cfg.DownloadTimeout = downloadTimeout
 	}
 
+	ffprobeTimeoutRaw := strings.TrimSpace(getEnvDefault("FFPROBE_TIMEOUT", "5s"))
+	ffprobeTimeout, err := time.ParseDuration(ffprobeTimeoutRaw)
+	if err != nil || ffprobeTimeout <= 0 {
+		return Config{}, fmt.Errorf("FFPROBE_TIMEOUT must be a positive duration, got %q", ffprobeTimeoutRaw)
+	} else {
+		cfg.FFprobeTimeout = ffprobeTimeout
+	}
+
+	ffmpegTimeoutRaw := strings.TrimSpace(getEnvDefault("FFMPEG_TIMEOUT", "30s"))
+	ffmpegTimeout, err := time.ParseDuration(ffmpegTimeoutRaw)
+	if err != nil || ffmpegTimeout <= 0 {
+		return Config{}, fmt.Errorf("FFMPEG_TIMEOUT must be a positive duration, got %q", ffmpegTimeoutRaw)
+	} else {
+		cfg.FFmpegTimeout = ffmpegTimeout
+	}
+
 	pickerSessionManangerTTLRaw := strings.TrimSpace(getEnvDefault("PICKER_SESSION_MANAGER_TTL", "10m"))
 	pickerSessionManagerTTL, err := time.ParseDuration(pickerSessionManangerTTLRaw)
 	if err != nil || pickerSessionManagerTTL <= 0 {
 		return Config{}, fmt.Errorf("PICKER_SESSION_MANAGER_TTL must be a positive duration, got %q", pickerSessionManangerTTLRaw)
 	} else {
 		cfg.PickerSessionManagerTTL = pickerSessionManagerTTL
+	}
+
+	pickerSessionManangerCleanupIntervalRaw := strings.TrimSpace(getEnvDefault("PICKER_SESSION_MANAGER_CLEANUP_INTERVAL", "3m"))
+	pickerSessionManagerCleanupInterval, err := time.ParseDuration(pickerSessionManangerCleanupIntervalRaw)
+	if err != nil || pickerSessionManagerCleanupInterval <= 0 {
+		return Config{}, fmt.Errorf("PICKER_SESSION_MANAGER_CLEANUP_INTERVAL must be a positive duration, got %q", pickerSessionManangerCleanupIntervalRaw)
+	} else {
+		cfg.PickerSessionManagerCleanupInterval = pickerSessionManagerCleanupInterval
 	}
 
 	return cfg, nil

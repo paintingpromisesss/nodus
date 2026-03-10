@@ -35,8 +35,8 @@ type ffprobeFormat struct {
 	Duration string `json:"duration"`
 }
 
-func probeVideoMetadata(filePath string) (videoMetadata, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+func probeVideoMetadata(filePath string, timeout time.Duration) (videoMetadata, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, "ffprobe",
@@ -84,8 +84,8 @@ func probeVideoMetadata(filePath string) (videoMetadata, error) {
 	return videoMetadata{}, fmt.Errorf("video stream not found")
 }
 
-func generateVideoThumbnail(filePath string, duration int) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+func generateVideoThumbnail(filePath string, duration int, timeout time.Duration) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	thumbFile, err := os.CreateTemp("", "cobalt-thumb-*.jpg")
@@ -126,8 +126,8 @@ func generateVideoThumbnail(filePath string, duration int) (string, error) {
 	return filepath.Clean(thumbPath), nil
 }
 
-func remuxStreamableMP4(filePath string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func remuxStreamableMP4(filePath string, timeout time.Duration) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	outputFile, err := os.CreateTemp("", "cobalt-streamable-*.mp4")

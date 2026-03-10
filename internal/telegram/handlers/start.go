@@ -2,14 +2,13 @@ package handlers
 
 import (
 	"context"
-	"time"
 
 	"go.uber.org/zap"
 	tele "gopkg.in/telebot.v4"
 )
 
 func (h *Handler) handleStart(c tele.Context) error {
-	reqCtx, cancel := context.WithTimeout(h.appCtx, 30*time.Second)
+	reqCtx, cancel := context.WithTimeout(h.appCtx, h.requestTimeout)
 	defer cancel()
 	userID := c.Sender().ID
 	if err := h.storage.EnsureUserSettings(reqCtx, userID); err != nil {

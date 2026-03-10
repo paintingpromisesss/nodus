@@ -4,17 +4,24 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"go.uber.org/zap"
 	tele "gopkg.in/telebot.v4"
 )
 
 type FileSender struct {
-	log *zap.Logger
+	log            *zap.Logger
+	ffprobeTimeout time.Duration
+	ffmpegTimeout  time.Duration
 }
 
-func NewFileSender(log *zap.Logger) *FileSender {
-	return &FileSender{log: log}
+func NewFileSender(log *zap.Logger, ffprobeTimeout time.Duration, ffmpegTimeout time.Duration) *FileSender {
+	return &FileSender{
+		log:            log,
+		ffprobeTimeout: ffprobeTimeout,
+		ffmpegTimeout:  ffmpegTimeout,
+	}
 }
 
 func (s *FileSender) SendFile(c tele.Context, filePath, fileName, detectedMIME string, recipient tele.Recipient) error {
@@ -49,7 +56,7 @@ func (s *FileSender) buildMedia(filePath, fileName, detectedMIME string) (any, f
 			File: file,
 		}, cleanup
 	case strings.HasPrefix(mime, "video/"):
-		streamablePath, err := remuxStreamableMP4(filePath)
+		streamablePath, err := remuxStreamableMP4(filePath, s.ffmpegTimeout)
 		if err != nil {
 			s.log.Debug("video remux failed, sending original file", zap.String("path", filePath), zap.Error(err))
 			streamablePath = filePath
@@ -66,7 +73,7 @@ func (s *FileSender) buildMedia(filePath, fileName, detectedMIME string) (any, f
 			MIME:      detectedMIME,
 			Streaming: true,
 		}
-		meta, err := probeVideoMetadata(streamablePath)
+		meta, err := probeVideoMetadata(streamablePath, s.ffprobeTimeout)
 		if err != nil {
 			s.log.Debug("video probe failed, sending without explicit metadata", zap.String("path", streamablePath), zap.Error(err))
 			return video, cleanup
@@ -76,7 +83,7 @@ func (s *FileSender) buildMedia(filePath, fileName, detectedMIME string) (any, f
 		video.Height = meta.Height
 		video.Duration = meta.Duration
 
-		thumbPath, err := generateVideoThumbnail(streamablePath, meta.Duration)
+		thumbPath, err := generateVideoThumbnail(streamablePath, meta.Duration, s.ffmpegTimeout)
 		if err != nil {
 			s.log.Debug("video thumbnail generation failed", zap.String("path", streamablePath), zap.Error(err))
 			return video, cleanup

@@ -1,6 +1,7 @@
 package pickersession
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -48,11 +49,23 @@ type PickerSessionManager struct {
 	ttl      time.Duration
 }
 
-func NewPickerSessionManager(ttl time.Duration) *PickerSessionManager {
-	return &PickerSessionManager{
+func NewPickerSessionManager(ctx context.Context, ttl time.Duration, cleanupInterval time.Duration) *PickerSessionManager {
+	if ttl <= 0 {
+		panic("ttl must be positive")
+	}
+
+	if cleanupInterval <= 0 {
+		panic("cleanupInterval must be positive")
+	}
+
+	m := &PickerSessionManager{
 		sessions: make(map[string]*pickerSession),
 		ttl:      ttl,
 	}
+
+	go m.startCleanup(ctx, cleanupInterval)
+
+	return m
 }
 
 func (m *PickerSessionManager) CreateSession(userID int64, cobaltResponse cobalt.MainResponse) string {
@@ -75,54 +88,35 @@ func (m *PickerSessionManager) CreateSession(userID int64, cobaltResponse cobalt
 }
 
 func (m *PickerSessionManager) GetPickerView(sessionID string, userID int64) (PickerView, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	s, err := m.validateSession(sessionID, userID)
-	if err != nil {
-		return PickerView{}, err
-	}
-
-	return buildPickerView(s), nil
-
+	return m.withSessionView(sessionID, userID, func(s *pickerSession) error {
+		return nil
+	})
 }
 
 func (m *PickerSessionManager) TogglePickerOption(sessionID string, userID int64, optionIdx int) (PickerView, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	s, err := m.validateSession(sessionID, userID)
-	if err != nil {
-		return PickerView{}, err
-	}
-	if optionIdx < 0 || optionIdx >= len(s.options) {
-		return PickerView{}, ErrInvalidOptionIdx
-	}
-
-	s.selected[optionIdx] = !s.selected[optionIdx]
-
-	return buildPickerView(s), nil
+	return m.withSessionView(sessionID, userID, func(s *pickerSession) error {
+		if optionIdx < 0 || optionIdx >= len(s.options) {
+			return ErrInvalidOptionIdx
+		}
+		s.selected[optionIdx] = !s.selected[optionIdx]
+		return nil
+	})
 }
 
 func (m *PickerSessionManager) MarkAllPickerOptions(sessionID string, userID int64, flag bool) (PickerView, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	s, err := m.validateSession(sessionID, userID)
-	if err != nil {
-		return PickerView{}, err
-	}
-	for i := range s.selected {
-		s.selected[i] = flag
-	}
-	return buildPickerView(s), nil
+	return m.withSessionView(sessionID, userID, func(s *pickerSession) error {
+		for i := range s.selected {
+			s.selected[i] = flag
+		}
+		return nil
+	})
 }
 
 func (m *PickerSessionManager) ConsumeSelectedOptions(sessionID string, userID int64) ([]PickerOption, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	s, err := m.validateSession(sessionID, userID)
+	s, err := m.validateSessionLocked(sessionID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +141,7 @@ func (m *PickerSessionManager) DeleteSession(sessionID string, userID int64) err
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	_, err := m.validateSession(sessionID, userID)
+	_, err := m.validateSessionLocked(sessionID, userID)
 	if err != nil {
 		return err
 	}
@@ -156,7 +150,25 @@ func (m *PickerSessionManager) DeleteSession(sessionID string, userID int64) err
 	return nil
 }
 
-func (m *PickerSessionManager) validateSession(sessionID string, userID int64) (*pickerSession, error) {
+func (m *PickerSessionManager) withSessionView(sessionID string, userID int64, fn func(*pickerSession) error) (PickerView, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	s, err := m.validateSessionLocked(sessionID, userID)
+	if err != nil {
+		return PickerView{}, err
+	}
+
+	if err := fn(s); err != nil {
+		return PickerView{}, err
+	}
+
+	return buildPickerView(s), nil
+
+}
+
+// validateSession func must be called with m.mu locked
+func (m *PickerSessionManager) validateSessionLocked(sessionID string, userID int64) (*pickerSession, error) {
 	session, ok := m.sessions[sessionID]
 	if !ok {
 		return nil, ErrSessionNotFound
@@ -172,6 +184,27 @@ func (m *PickerSessionManager) validateSession(sessionID string, userID int64) (
 	}
 
 	return session, nil
+}
+
+func (m *PickerSessionManager) startCleanup(ctx context.Context, cleanupInterval time.Duration) {
+	ticker := time.NewTicker(cleanupInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			now := time.Now()
+			m.mu.Lock()
+			for id, session := range m.sessions {
+				if now.After(session.expiresAt) {
+					delete(m.sessions, id)
+				}
+			}
+			m.mu.Unlock()
+		}
+	}
 }
 
 func buildPickerView(session *pickerSession) PickerView {
