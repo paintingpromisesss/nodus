@@ -3,13 +3,14 @@ package handlers
 import (
 	"context"
 
+	"github.com/paintingpromisesss/cobalt_bot/internal/telegram"
 	"go.uber.org/zap"
 	tele "gopkg.in/telebot.v4"
 )
 
 func (h *Handler) handlePickerCallback(c tele.Context) error {
 	if err := c.Respond(); err != nil {
-		h.logger.Warn("Failed to respond to picker callback: %v", zap.Error(err))
+		h.logger.Warn("failed to respond to picker callback", zap.Error(err))
 	}
 
 	userID := c.Sender().ID
@@ -17,33 +18,38 @@ func (h *Handler) handlePickerCallback(c tele.Context) error {
 
 	action, sessionID, optionIdx, err := parsePickerCallbackData(c.Data())
 	if err != nil {
-		err = c.Edit("Не удалось распознать действие. Пожалуйста, попробуйте снова.")
-		return err
+		h.logger.Warn("failed to parse picker callback data", zap.Int64("user_id", userID), zap.String("data", c.Data()), zap.Error(err))
+
+		if err := c.Edit("Не удалось распознать действие. Пожалуйста, попробуйте снова."); err != nil {
+			return err
+		}
+
+		return telegram.MarkHandled(err)
 	}
 
 	switch action {
 	case ToggleAction:
 		pickerView, err := h.pickerSessionManager.TogglePickerOption(sessionID, userID, optionIdx)
 		if err != nil {
-			return handlePickerError(c, statusMsg, err)
+			return handlePickerCallbackError(c, statusMsg, err)
 		}
 		return h.renderPickerKeyboard(c, statusMsg, sessionID, &pickerView)
 	case SelectAllAction:
 		pickerView, err := h.pickerSessionManager.MarkAllPickerOptions(sessionID, userID, true)
 		if err != nil {
-			return handlePickerError(c, statusMsg, err)
+			return handlePickerCallbackError(c, statusMsg, err)
 		}
 		return h.renderPickerKeyboard(c, statusMsg, sessionID, &pickerView)
 	case ClearAllAction:
 		pickerView, err := h.pickerSessionManager.MarkAllPickerOptions(sessionID, userID, false)
 		if err != nil {
-			return handlePickerError(c, statusMsg, err)
+			return handlePickerCallbackError(c, statusMsg, err)
 		}
 		return h.renderPickerKeyboard(c, statusMsg, sessionID, &pickerView)
 	case DownloadAction:
 		options, err := h.pickerSessionManager.ConsumeSelectedOptions(sessionID, userID)
 		if err != nil {
-			return handlePickerError(c, statusMsg, err)
+			return handlePickerCallbackError(c, statusMsg, err)
 		}
 
 		err = h.queueManager.Run(userID, func() error {
@@ -53,13 +59,13 @@ func (h *Handler) handlePickerCallback(c tele.Context) error {
 		})
 
 		if err != nil {
-			return handlePickerError(c, statusMsg, err)
+			return handlePickerCallbackError(c, statusMsg, err)
 		}
 		return nil
 	case CancelAction:
 		err := h.pickerSessionManager.DeleteSession(sessionID, userID)
 		if err != nil {
-			return handlePickerError(c, statusMsg, err)
+			return handlePickerCallbackError(c, statusMsg, err)
 		}
 		_, err = c.Bot().Edit(statusMsg, "Сессия выбора отменена. Если хотите скачать что-то ещё, просто отправьте ссылку.")
 		return err

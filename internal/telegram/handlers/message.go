@@ -8,6 +8,7 @@ import (
 
 	"github.com/paintingpromisesss/cobalt_bot/internal/cobalt"
 	"github.com/paintingpromisesss/cobalt_bot/internal/storage"
+	"github.com/paintingpromisesss/cobalt_bot/internal/telegram"
 	"go.uber.org/zap"
 	tele "gopkg.in/telebot.v4"
 )
@@ -107,9 +108,10 @@ func (h *Handler) handleMessage(c tele.Context) error {
 
 		if _, err := c.Bot().Edit(statusMsg, pickerErrorToText(err)); err != nil {
 			h.logger.Error("failed to edit status message with error", zap.Int64("user_id", userID), zap.String("username", username), zap.Error(err))
+			return err
 		}
 
-		return err
+		return telegram.MarkHandled(err)
 	}
 
 	h.logger.Info(

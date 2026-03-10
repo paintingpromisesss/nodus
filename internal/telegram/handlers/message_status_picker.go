@@ -9,6 +9,7 @@ import (
 
 	"github.com/paintingpromisesss/cobalt_bot/internal/cobalt"
 	"github.com/paintingpromisesss/cobalt_bot/internal/downloader"
+	"github.com/paintingpromisesss/cobalt_bot/internal/telegram"
 	pickersession "github.com/paintingpromisesss/cobalt_bot/internal/telegram/picker_session"
 	tele "gopkg.in/telebot.v4"
 )
@@ -200,6 +201,14 @@ func handlePickerError(c tele.Context, statusMsg *tele.Message, err error) error
 		_, err := c.Bot().Edit(statusMsg, pickerErrorToText(err))
 		return err
 	}
+}
+
+func handlePickerCallbackError(c tele.Context, statusMsg *tele.Message, err error) error {
+	if editErr := handlePickerError(c, statusMsg, err); editErr != nil {
+		return editErr
+	}
+
+	return telegram.MarkHandled(err)
 }
 
 func pickerErrorToText(err error) string {

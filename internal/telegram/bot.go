@@ -22,6 +22,9 @@ func New(token string, apiURL string, log *zap.Logger) (*Bot, error) {
 			Timeout: 10 * time.Second,
 		},
 		OnError: func(err error, _ tele.Context) {
+			if IsHandledError(err) {
+				return
+			}
 			log.Error("telegram polling error", zap.Error(err))
 		},
 	})
