@@ -9,6 +9,7 @@ import (
 	"time"
 )
 
+// TODO: separate config to multiple structs based on logical grouping (e.g. TelegramConfig, CobaltConfig, YtDLPConfig, etc.)
 type Config struct {
 	TelegramBotToken                    string
 	TelegramBotAPIURL                   string

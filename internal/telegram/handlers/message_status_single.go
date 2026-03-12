@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/paintingpromisesss/cobalt_bot/internal/cobalt"
 	"github.com/paintingpromisesss/cobalt_bot/internal/downloader"
@@ -71,7 +70,7 @@ func (h *Handler) downloadSingleWithFallback(c tele.Context, ctx context.Context
 		return result, nil
 	}
 
-	if !errors.Is(err, downloader.ErrEmptyFile) || !isYouTubeURL(sourceURL) {
+	if !errors.Is(err, downloader.ErrEmptyFile) || !IsYouTubeURL(sourceURL) {
 		return downloader.DownloadResult{}, err
 	}
 
@@ -87,9 +86,4 @@ func (h *Handler) downloadSingleWithFallback(c tele.Context, ctx context.Context
 	}
 
 	return h.ytDownloader.Download(ctx, sourceURL, cobaltResponse.Filename)
-}
-
-func isYouTubeURL(value string) bool {
-	url := strings.ToLower(strings.TrimSpace(value))
-	return strings.Contains(url, "youtube.com/") || strings.Contains(url, "youtu.be/")
 }

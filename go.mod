@@ -10,6 +10,14 @@ require (
 )
 
 require (
+	github.com/ProtonMail/go-crypto v1.4.0 // indirect
+	github.com/cloudflare/circl v1.6.3 // indirect
+	github.com/lrstanley/go-ytdlp v1.3.3 // indirect
+	github.com/ulikunitz/xz v0.5.15 // indirect
+	golang.org/x/crypto v0.48.0 // indirect
+)
+
+require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/jmoiron/sqlx v1.4.0
@@ -18,7 +26,7 @@ require (
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	go.uber.org/multierr v1.10.0 // indirect
 	golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b // indirect
-	golang.org/x/sys v0.38.0 // indirect
+	golang.org/x/sys v0.42.0 // indirect
 	modernc.org/libc v1.66.10 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
