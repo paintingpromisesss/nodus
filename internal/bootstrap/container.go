@@ -58,6 +58,7 @@ func Build(ctx context.Context, cfg config.Config) (*Container, error) {
 		cfg.Storage.MaxFileBytes,
 		cfg.YTDLP.CurrentlyLiveAvailable,
 		cfg.YTDLP.PlaylistAvailable,
+		cfg.YTDLP.UseJSRuntime,
 	)
 	ytDLPGateway := ytdlp.NewDownloadGateway(ytDLPClient)
 	mediaSender := media.NewSender(log, cfg.Timeouts.FFprobe, cfg.Timeouts.FFmpeg)

@@ -36,6 +36,7 @@ type YTDLPConfig struct {
 	MaxMediaDurationSeconds int
 	CurrentlyLiveAvailable  bool
 	PlaylistAvailable       bool
+	UseJSRuntime            bool
 }
 
 type PickerSessionConfig struct {
@@ -132,6 +133,12 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 	cfg.YTDLP.PlaylistAvailable = playlistAvailable
+
+	useJSRuntime, err := parseBoolEnv("TG_BOT_YTDLP_USE_JS_RUNTIME", "0")
+	if err != nil {
+		return Config{}, err
+	}
+	cfg.YTDLP.UseJSRuntime = useJSRuntime
 
 	pickerSessionTTL, err := parsePositiveDurationEnv("TG_BOT_PICKER_SESSION_MANAGER_TTL", "10m")
 	if err != nil {

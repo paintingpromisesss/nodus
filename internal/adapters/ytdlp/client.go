@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -28,15 +27,17 @@ type Client struct {
 	CurrentlyLiveAvailable bool
 	PlaylistAvailable      bool
 	ClientType             *YtDLPClient
+	JSRuntimeSpec          string
 }
 
-func NewClient(tempDir string, maxDurationSecs int, maxFileBytes int64, currentlyLiveAvailable bool, playlistAvailable bool) *Client {
+func NewClient(tempDir string, maxDurationSecs int, maxFileBytes int64, currentlyLiveAvailable bool, playlistAvailable bool, useJSRuntime bool) *Client {
 	return &Client{
 		tempDir:                tempDir,
 		MaxDurationSecs:        maxDurationSecs,
 		MaxFileBytes:           maxFileBytes,
 		CurrentlyLiveAvailable: currentlyLiveAvailable,
 		PlaylistAvailable:      playlistAvailable,
+		JSRuntimeSpec:          detectJSRuntimeSpec(useJSRuntime),
 	}
 }
 
@@ -119,66 +120,4 @@ func (c *Client) Download(ctx context.Context, url, formatID string, selectedFor
 		ContentType:  contentType,
 		DetectedMIME: detectedMIME,
 	}, nil
-}
-
-func detectMIMEFromProbe(mediaProbe ffprobe.MediaProbe, fallback string) string {
-	if fallback == "" {
-		fallback = "application/octet-stream"
-	}
-
-	hasVideo := false
-	hasAudio := false
-	for _, stream := range mediaProbe.Streams {
-		switch stream.CodecType {
-		case "video":
-			hasVideo = true
-		case "audio":
-			hasAudio = true
-		}
-	}
-
-	switch {
-	case hasVideo && strings.HasPrefix(fallback, "video/"):
-		return fallback
-	case hasAudio && strings.HasPrefix(fallback, "audio/"):
-		return fallback
-	case hasVideo:
-		return "video/mp4"
-	case hasAudio:
-		return "audio/mpeg"
-	default:
-		return fallback
-	}
-}
-
-func validateMediaDurationSeconds(actualSeconds, maxSeconds int) error {
-	if maxSeconds <= 0 || actualSeconds <= 0 {
-		return nil
-	}
-	if actualSeconds > maxSeconds {
-		return fmt.Errorf("%w: got %ds, max %ds", ErrMediaDurationTooLong, actualSeconds, maxSeconds)
-	}
-	return nil
-}
-
-func validateProbeDuration(mediaProbe ffprobe.MediaProbe, maxSeconds int) error {
-	if maxSeconds <= 0 {
-		return nil
-	}
-
-	raw := strings.TrimSpace(mediaProbe.FormatDuration)
-	if raw == "" {
-		return nil
-	}
-
-	seconds, err := strconv.ParseFloat(raw, 64)
-	if err != nil || seconds <= 0 {
-		return nil
-	}
-
-	if seconds > float64(maxSeconds) {
-		return fmt.Errorf("%w: got %.3fs, max %ds", ErrMediaDurationTooLong, seconds, maxSeconds)
-	}
-
-	return nil
 }

@@ -3,14 +3,18 @@ package ytdlp
 import (
 	"errors"
 	"fmt"
+	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 
+	ffprobe "github.com/paintingpromisesss/cobalt_bot/internal/adapters/ffprobe"
 	"github.com/paintingpromisesss/cobalt_bot/internal/domain/media"
 )
 
 func (c *Client) buildGetMetadataArgs(url string, ClientType *YtDLPClient) []string {
 	args := []string{"-J", "--skip-download"}
+	args = appendJSRuntimeArgs(args, c.JSRuntimeSpec)
 
 	if !c.PlaylistAvailable {
 		args = append(args, "--no-playlist")
@@ -58,6 +62,7 @@ func (c *Client) buildDownloadArgs(url string, formatID string, selectedFormat *
 		"-P", "temp:" + c.tempDir,
 		"-o", "%(title)s [%(id)s] [%(format_id)s].%(ext)s",
 	}
+	args = appendJSRuntimeArgs(args, c.JSRuntimeSpec)
 
 	if !c.PlaylistAvailable {
 		args = append(args, "--no-playlist")
@@ -99,6 +104,15 @@ func buildDownloadPostProcessArgs(formatID string, selectedFormat *media.Downloa
 	default:
 		return nil
 	}
+}
+
+func appendJSRuntimeArgs(args []string, runtimeSpec string) []string {
+	runtimeSpec = strings.TrimSpace(runtimeSpec)
+	if runtimeSpec == "" {
+		return args
+	}
+
+	return append(args, "--js-runtimes", runtimeSpec)
 }
 
 func parseDownloadedFilePath(output []byte) (string, error) {
@@ -160,4 +174,91 @@ func formatCodecLabel(codec string) string {
 	}
 
 	return value
+}
+
+func detectJSRuntimeSpec(enabled bool) string {
+	if !enabled {
+		return ""
+	}
+
+	candidates := []struct {
+		runtime string
+		binary  string
+	}{
+		{runtime: "node", binary: "node"},
+		{runtime: "node", binary: "nodejs"},
+		{runtime: "bun", binary: "bun"},
+		{runtime: "deno", binary: "deno"},
+	}
+
+	for _, candidate := range candidates {
+		path, err := exec.LookPath(candidate.binary)
+		if err == nil && strings.TrimSpace(path) != "" {
+			return candidate.runtime + ":" + path
+		}
+	}
+
+	return ""
+}
+
+func detectMIMEFromProbe(mediaProbe ffprobe.MediaProbe, fallback string) string {
+	if fallback == "" {
+		fallback = "application/octet-stream"
+	}
+
+	hasVideo := false
+	hasAudio := false
+	for _, stream := range mediaProbe.Streams {
+		switch stream.CodecType {
+		case "video":
+			hasVideo = true
+		case "audio":
+			hasAudio = true
+		}
+	}
+
+	switch {
+	case hasVideo && strings.HasPrefix(fallback, "video/"):
+		return fallback
+	case hasAudio && strings.HasPrefix(fallback, "audio/"):
+		return fallback
+	case hasVideo:
+		return "video/mp4"
+	case hasAudio:
+		return "audio/mpeg"
+	default:
+		return fallback
+	}
+}
+
+func validateMediaDurationSeconds(actualSeconds, maxSeconds int) error {
+	if maxSeconds <= 0 || actualSeconds <= 0 {
+		return nil
+	}
+	if actualSeconds > maxSeconds {
+		return fmt.Errorf("%w: got %ds, max %ds", ErrMediaDurationTooLong, actualSeconds, maxSeconds)
+	}
+	return nil
+}
+
+func validateProbeDuration(mediaProbe ffprobe.MediaProbe, maxSeconds int) error {
+	if maxSeconds <= 0 {
+		return nil
+	}
+
+	raw := strings.TrimSpace(mediaProbe.FormatDuration)
+	if raw == "" {
+		return nil
+	}
+
+	seconds, err := strconv.ParseFloat(raw, 64)
+	if err != nil || seconds <= 0 {
+		return nil
+	}
+
+	if seconds > float64(maxSeconds) {
+		return fmt.Errorf("%w: got %.3fs, max %ds", ErrMediaDurationTooLong, seconds, maxSeconds)
+	}
+
+	return nil
 }
