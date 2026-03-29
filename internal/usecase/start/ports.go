@@ -3,7 +3,7 @@ package start
 import (
 	"context"
 
-	"github.com/paintingpromisesss/cobalt_bot/internal/domain/user"
+	"github.com/paintingpromisesss/nodus/internal/domain/user"
 )
 
 type SettingsService interface {

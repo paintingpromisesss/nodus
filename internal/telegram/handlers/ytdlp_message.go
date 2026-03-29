@@ -3,9 +3,9 @@ package handlers
 import (
 	"fmt"
 
-	"github.com/paintingpromisesss/cobalt_bot/internal/domain/picker"
-	"github.com/paintingpromisesss/cobalt_bot/internal/telegram/presenter"
-	usecasepicker "github.com/paintingpromisesss/cobalt_bot/internal/usecase/picker"
+	"github.com/paintingpromisesss/nodus/internal/domain/picker"
+	"github.com/paintingpromisesss/nodus/internal/telegram/presenter"
+	usecasepicker "github.com/paintingpromisesss/nodus/internal/usecase/picker"
 	tele "gopkg.in/telebot.v4"
 )
 

@@ -5,10 +5,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/paintingpromisesss/cobalt_bot/internal/adapters/fetch"
-	"github.com/paintingpromisesss/cobalt_bot/internal/adapters/ytdlp"
-	"github.com/paintingpromisesss/cobalt_bot/internal/domain/picker"
-	"github.com/paintingpromisesss/cobalt_bot/internal/telegram"
+	"github.com/paintingpromisesss/nodus/internal/adapters/fetch"
+	"github.com/paintingpromisesss/nodus/internal/adapters/ytdlp"
+	"github.com/paintingpromisesss/nodus/internal/domain/picker"
+	"github.com/paintingpromisesss/nodus/internal/telegram"
 	"go.uber.org/zap"
 	tele "gopkg.in/telebot.v4"
 )

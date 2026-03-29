@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	usecasedownload "github.com/paintingpromisesss/cobalt_bot/internal/usecase/download"
-	usecasepicker "github.com/paintingpromisesss/cobalt_bot/internal/usecase/picker"
+	usecasedownload "github.com/paintingpromisesss/nodus/internal/usecase/download"
+	usecasepicker "github.com/paintingpromisesss/nodus/internal/usecase/picker"
 	"go.uber.org/zap"
 	tele "gopkg.in/telebot.v4"
 )

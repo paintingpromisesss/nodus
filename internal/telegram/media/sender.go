@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	ffprobe "github.com/paintingpromisesss/cobalt_bot/internal/adapters/ffprobe"
+	ffprobe "github.com/paintingpromisesss/nodus/internal/adapters/ffprobe"
 	"go.uber.org/zap"
 	tele "gopkg.in/telebot.v4"
 )

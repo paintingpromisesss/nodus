@@ -3,7 +3,7 @@ package memory
 import (
 	"time"
 
-	"github.com/paintingpromisesss/cobalt_bot/internal/domain/picker"
+	"github.com/paintingpromisesss/nodus/internal/domain/picker"
 )
 
 func (m *PickerStore) CreateCobaltSession(userID int64, state picker.CobaltState) (string, error) {

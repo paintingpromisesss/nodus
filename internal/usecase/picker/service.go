@@ -2,7 +2,8 @@ package picker
 
 import (
 	"fmt"
-	domainpicker "github.com/paintingpromisesss/cobalt_bot/internal/domain/picker"
+
+	domainpicker "github.com/paintingpromisesss/nodus/internal/domain/picker"
 )
 
 type Service struct {

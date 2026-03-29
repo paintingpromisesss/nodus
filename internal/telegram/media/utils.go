@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	ffprobe "github.com/paintingpromisesss/cobalt_bot/internal/adapters/ffprobe"
+	ffprobe "github.com/paintingpromisesss/nodus/internal/adapters/ffprobe"
 	tele "gopkg.in/telebot.v4"
 )
 

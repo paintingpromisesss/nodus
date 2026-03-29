@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/paintingpromisesss/cobalt_bot/internal/adapters/fetch"
-	ffprobe "github.com/paintingpromisesss/cobalt_bot/internal/adapters/ffprobe"
-	"github.com/paintingpromisesss/cobalt_bot/internal/domain/media"
+	"github.com/paintingpromisesss/nodus/internal/adapters/fetch"
+	ffprobe "github.com/paintingpromisesss/nodus/internal/adapters/ffprobe"
+	"github.com/paintingpromisesss/nodus/internal/domain/media"
 )
 
 var ErrMediaDurationTooLong = errors.New("media duration exceeds limit")

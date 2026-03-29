@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/paintingpromisesss/cobalt_bot/internal/domain/user"
+	"github.com/paintingpromisesss/nodus/internal/domain/user"
 )
 
 var ErrUserSettingsNotFound = errors.New("user settings not found")

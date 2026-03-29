@@ -1,6 +1,6 @@
 package cobalt
 
-import "github.com/paintingpromisesss/cobalt_bot/internal/domain/user"
+import "github.com/paintingpromisesss/nodus/internal/domain/user"
 
 type MainRequest struct {
 	Url                   string                `json:"url"`

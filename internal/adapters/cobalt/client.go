@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/paintingpromisesss/cobalt_bot/internal/platform/httpclient"
+	"github.com/paintingpromisesss/nodus/internal/platform/httpclient"
 )
 
 type Client struct {

@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/paintingpromisesss/cobalt_bot/internal/domain/picker"
+	"github.com/paintingpromisesss/nodus/internal/domain/picker"
 )
 
 func EncodeCobaltPickerCallbackData(action picker.CobaltAction, sessionID string, optionIdx int) string {

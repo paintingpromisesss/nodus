@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/paintingpromisesss/cobalt_bot/internal/domain/media"
-	domainpicker "github.com/paintingpromisesss/cobalt_bot/internal/domain/picker"
-	"github.com/paintingpromisesss/cobalt_bot/internal/domain/source"
-	"github.com/paintingpromisesss/cobalt_bot/internal/domain/user"
+	"github.com/paintingpromisesss/nodus/internal/domain/media"
+	domainpicker "github.com/paintingpromisesss/nodus/internal/domain/picker"
+	"github.com/paintingpromisesss/nodus/internal/domain/source"
+	"github.com/paintingpromisesss/nodus/internal/domain/user"
 )
 
 type Service struct {
