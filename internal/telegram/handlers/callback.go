@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"github.com/paintingpromisesss/cobalt_bot/internal/telegram"
+	"github.com/paintingpromisesss/nodus/internal/telegram"
 	"go.uber.org/zap"
 	tele "gopkg.in/telebot.v4"
 )

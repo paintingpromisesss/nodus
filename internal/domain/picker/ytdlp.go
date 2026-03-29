@@ -3,7 +3,7 @@ package picker
 import (
 	"time"
 
-	"github.com/paintingpromisesss/cobalt_bot/internal/domain/media"
+	"github.com/paintingpromisesss/nodus/internal/domain/media"
 )
 
 type YtDLPTab string

@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	ffprobe "github.com/paintingpromisesss/cobalt_bot/internal/adapters/ffprobe"
-	"github.com/paintingpromisesss/cobalt_bot/internal/domain/media"
+	ffprobe "github.com/paintingpromisesss/nodus/internal/adapters/ffprobe"
+	"github.com/paintingpromisesss/nodus/internal/domain/media"
 )
 
 func (c *Client) buildGetMetadataArgs(url string, ClientType *YtDLPClient) []string {

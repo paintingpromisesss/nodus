@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 
-	"github.com/paintingpromisesss/cobalt_bot/internal/bootstrap"
-	"github.com/paintingpromisesss/cobalt_bot/internal/platform/config"
+	"github.com/paintingpromisesss/nodus/internal/bootstrap"
+	"github.com/paintingpromisesss/nodus/internal/platform/config"
 )
 
 func main() {

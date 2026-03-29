@@ -1,8 +1,8 @@
 package download
 
 import (
-	"github.com/paintingpromisesss/cobalt_bot/internal/domain/media"
-	"github.com/paintingpromisesss/cobalt_bot/internal/domain/picker"
+	"github.com/paintingpromisesss/nodus/internal/domain/media"
+	"github.com/paintingpromisesss/nodus/internal/domain/picker"
 )
 
 type Input struct {

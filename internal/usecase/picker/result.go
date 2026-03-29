@@ -1,6 +1,6 @@
 package picker
 
-import domainpicker "github.com/paintingpromisesss/cobalt_bot/internal/domain/picker"
+import domainpicker "github.com/paintingpromisesss/nodus/internal/domain/picker"
 
 type CobaltInput struct {
 	Action    domainpicker.CobaltAction

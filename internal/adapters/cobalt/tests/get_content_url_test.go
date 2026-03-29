@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	cobalt "github.com/paintingpromisesss/cobalt_bot/internal/adapters/cobalt"
+	cobalt "github.com/paintingpromisesss/nodus/internal/adapters/cobalt"
 )
 
 func TestGetContentURLSuccessTunnelResponse(t *testing.T) {

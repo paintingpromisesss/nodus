@@ -1,4 +1,4 @@
-module github.com/paintingpromisesss/cobalt_bot
+module github.com/paintingpromisesss/nodus
 
 go 1.25.7
 
@@ -8,8 +8,6 @@ require (
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	gopkg.in/telebot.v4 v4.0.0-beta.7
 )
-
-require github.com/stretchr/testify v1.11.1 // indirect
 
 require (
 	github.com/dustin/go-humanize v1.0.1 // indirect

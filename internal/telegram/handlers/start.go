@@ -3,7 +3,7 @@ package handlers
 import (
 	"context"
 
-	usecasestart "github.com/paintingpromisesss/cobalt_bot/internal/usecase/start"
+	usecasestart "github.com/paintingpromisesss/nodus/internal/usecase/start"
 	"go.uber.org/zap"
 	tele "gopkg.in/telebot.v4"
 )

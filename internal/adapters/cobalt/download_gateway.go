@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/paintingpromisesss/cobalt_bot/internal/domain/source"
-	"github.com/paintingpromisesss/cobalt_bot/internal/domain/user"
+	"github.com/paintingpromisesss/nodus/internal/domain/source"
+	"github.com/paintingpromisesss/nodus/internal/domain/user"
 )
 
 type CobaltDownloadGateway struct {

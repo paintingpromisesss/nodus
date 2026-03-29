@@ -10,7 +10,7 @@ import (
 	"github.com/golang-migrate/migrate/v4/database/sqlite"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/jmoiron/sqlx"
-	migrations "github.com/paintingpromisesss/cobalt_bot/migrations"
+	migrations "github.com/paintingpromisesss/nodus/migrations"
 )
 
 func Migrate(dbPath string) error {

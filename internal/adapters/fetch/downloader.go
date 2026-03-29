@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/paintingpromisesss/cobalt_bot/internal/platform/httpclient"
+	"github.com/paintingpromisesss/nodus/internal/platform/httpclient"
 )
 
 var ErrFileTooLarge = errors.New("file exceeds max size")

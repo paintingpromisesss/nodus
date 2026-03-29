@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	usecasesettings "github.com/paintingpromisesss/cobalt_bot/internal/usecase/settings"
+	usecasesettings "github.com/paintingpromisesss/nodus/internal/usecase/settings"
 )
 
 type Service struct {

@@ -3,10 +3,10 @@ package download
 import (
 	"context"
 
-	"github.com/paintingpromisesss/cobalt_bot/internal/domain/media"
-	"github.com/paintingpromisesss/cobalt_bot/internal/domain/source"
-	"github.com/paintingpromisesss/cobalt_bot/internal/domain/user"
-	usecasesettings "github.com/paintingpromisesss/cobalt_bot/internal/usecase/settings"
+	"github.com/paintingpromisesss/nodus/internal/domain/media"
+	"github.com/paintingpromisesss/nodus/internal/domain/source"
+	"github.com/paintingpromisesss/nodus/internal/domain/user"
+	usecasesettings "github.com/paintingpromisesss/nodus/internal/usecase/settings"
 )
 
 type SettingsService interface {

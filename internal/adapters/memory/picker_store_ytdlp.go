@@ -3,7 +3,7 @@ package memory
 import (
 	"time"
 
-	"github.com/paintingpromisesss/cobalt_bot/internal/domain/picker"
+	"github.com/paintingpromisesss/nodus/internal/domain/picker"
 )
 
 func (m *PickerStore) CreateYtDLPSession(userID int64, state picker.YtDLPState) (string, error) {

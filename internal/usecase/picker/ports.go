@@ -1,6 +1,6 @@
 package picker
 
-import domainpicker "github.com/paintingpromisesss/cobalt_bot/internal/domain/picker"
+import domainpicker "github.com/paintingpromisesss/nodus/internal/domain/picker"
 
 type Store interface {
 	CreateCobaltSession(userID int64, state domainpicker.CobaltState) (string, error)

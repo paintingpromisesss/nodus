@@ -7,7 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/paintingpromisesss/cobalt_bot/internal/platform/config"
+	"github.com/paintingpromisesss/nodus/internal/platform/config"
 	"go.uber.org/zap"
 )
 

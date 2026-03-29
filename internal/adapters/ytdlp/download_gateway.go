@@ -3,8 +3,8 @@ package ytdlp
 import (
 	"context"
 
-	"github.com/paintingpromisesss/cobalt_bot/internal/domain/media"
-	"github.com/paintingpromisesss/cobalt_bot/internal/domain/source"
+	"github.com/paintingpromisesss/nodus/internal/domain/media"
+	"github.com/paintingpromisesss/nodus/internal/domain/source"
 )
 
 type YtDLPDownloadGateway struct {

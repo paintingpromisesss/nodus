@@ -3,7 +3,7 @@ package presenter
 import (
 	"fmt"
 
-	"github.com/paintingpromisesss/cobalt_bot/internal/domain/picker"
+	"github.com/paintingpromisesss/nodus/internal/domain/picker"
 	tele "gopkg.in/telebot.v4"
 )
 
