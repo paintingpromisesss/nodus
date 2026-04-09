@@ -8,6 +8,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/paintingpromisesss/nodus-backend/internal/config"
+	"github.com/paintingpromisesss/nodus-backend/internal/ytdlp"
 	"go.uber.org/zap"
 )
 
@@ -15,9 +16,10 @@ type Server struct {
 	app    *fiber.App
 	config config.ServerConfig
 	logger *zap.Logger
+	ytdlp  *ytdlp.Client
 }
 
-func New(cfg config.ServerConfig, logger *zap.Logger) *Server {
+func New(cfg config.ServerConfig, logger *zap.Logger, ytdlpClient *ytdlp.Client) *Server {
 	app := fiber.New(fiber.Config{
 		AppName: cfg.AppName,
 	})
@@ -26,10 +28,11 @@ func New(cfg config.ServerConfig, logger *zap.Logger) *Server {
 		app:    app,
 		config: cfg,
 		logger: logger,
+		ytdlp:  ytdlpClient,
 	}
 
-	s.registerRoutes()
 	s.registerMiddleware()
+	s.registerRoutes()
 
 	return s
 }

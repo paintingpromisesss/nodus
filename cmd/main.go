@@ -7,6 +7,7 @@ import (
 	"github.com/paintingpromisesss/nodus-backend/internal/config"
 	"github.com/paintingpromisesss/nodus-backend/internal/logger"
 	"github.com/paintingpromisesss/nodus-backend/internal/server"
+	"github.com/paintingpromisesss/nodus-backend/internal/ytdlp"
 )
 
 func main() {
@@ -14,12 +15,24 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
+	if err := config.Validate(); err != nil {
+		log.Fatalf("Invalid config: %v", err)
+	}
 	logger, err := logger.New(config.LogLevel)
 	if err != nil {
 		log.Fatalf("Failed to create logger: %v", err)
 	}
 
-	srv := server.New(config.Server, logger)
+	ytdlpClient := ytdlp.NewClient(
+		config.YTDLP.TempDir,
+		config.YTDLP.MaxDurationSecs,
+		config.YTDLP.MaxFileBytes,
+		config.YTDLP.CurrentlyLiveAvailable,
+		config.YTDLP.PlaylistAvailable,
+		config.YTDLP.UseJSRuntime,
+	)
+
+	srv := server.New(config.Server, logger, ytdlpClient)
 
 	if err := srv.Run(context.Background()); err != nil {
 		log.Fatal(err)

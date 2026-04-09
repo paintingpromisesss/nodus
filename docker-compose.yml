@@ -1,0 +1,14 @@
+services:
+  nodus-rework:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nodus-rework
+    ports:
+      - "8888:8888"
+    env_file:
+      - .env
+    restart: unless-stopped
+
+volumes:
+  nodus_rework_data:
