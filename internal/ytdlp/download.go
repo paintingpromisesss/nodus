@@ -17,11 +17,18 @@ type DownloadResult struct {
 	DetectedMIME string
 }
 
-func (c *Client) Download(ctx context.Context, url, formatID string) (*DownloadResult, error) {
+type DownloadOptions struct {
+	FormatID  string
+	ACodec    string
+	VCodec    string
+	Container string
+}
+
+func (c *Client) Download(ctx context.Context, url string, options DownloadOptions) (*DownloadResult, error) {
 	if strings.TrimSpace(url) == "" {
 		return nil, ErrEmptyURL
 	}
-	if strings.TrimSpace(formatID) == "" {
+	if strings.TrimSpace(options.FormatID) == "" {
 		return nil, ErrFormatIDRequired
 	}
 
@@ -29,7 +36,7 @@ func (c *Client) Download(ctx context.Context, url, formatID string) (*DownloadR
 		return nil, err
 	}
 
-	args := c.buildDownloadArgs(url, formatID)
+	args := c.buildDownloadArgs(url, options.FormatID)
 	cmd := exec.CommandContext(ctx, "yt-dlp", args...)
 	cmd.Env = c.defaultEnvironment()
 	output, err := cmd.CombinedOutput()

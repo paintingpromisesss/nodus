@@ -59,7 +59,7 @@ func (s *Server) handleDownload(c fiber.Ctx) error {
 		return RespondWithError(c, fiber.StatusBadRequest, ErrFormatIDRequired)
 	}
 
-	result, err := s.ytdlp.Download(c.Context(), request.URL, request.FormatID)
+	result, err := s.ytdlp.Download(c.Context(), request.URL, ytdlp.DownloadOptions(request.DownloadOptions))
 	if err != nil {
 		return RespondWithError(c, fiber.StatusBadRequest, err)
 	}
@@ -116,7 +116,7 @@ func (s *Server) streamMetadataSSE(
 	err := s.ytdlp.StreamMetadata(
 		streamCtx,
 		request.URLs,
-		ytdlp.FetchOptions{UseAllClients: request.UseAllClients},
+		ytdlp.FetchOptions(request.FetchOptions),
 		func(event ytdlp.MetadataEvent) {
 			if writeErr != nil {
 				return
