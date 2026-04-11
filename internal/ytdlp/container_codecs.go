@@ -1,6 +1,10 @@
 package ytdlp
 
-import "slices"
+import (
+	"fmt"
+	"slices"
+	"strings"
+)
 
 type Params struct {
 	Video []string
@@ -22,6 +26,14 @@ var allowed = map[string]Params{
 	},
 }
 
+func normalizeCodec(codec string) string {
+	return strings.ToLower(strings.TrimSpace(codec))
+}
+
+func normalizeContainer(container string) string {
+	return strings.ToLower(strings.TrimSpace(container))
+}
+
 func isCompatible(container, vcodec, acodec string) bool {
 	params, ok := allowed[container]
 	if !ok {
@@ -41,4 +53,35 @@ func isCompatible(container, vcodec, acodec string) bool {
 	}
 
 	return allowedVideo && allowedAudio
+}
+
+func validateContainerCodecs(container, vcodec, acodec string) error {
+	container = normalizeContainer(container)
+	vcodec = normalizeCodec(vcodec)
+	acodec = normalizeCodec(acodec)
+
+	if container == "" && vcodec == "" && acodec == "" {
+		return nil
+	}
+	if container == "" && (vcodec != "" || acodec != "") {
+		return ErrContainerRequiredForCodecSelection
+	}
+
+	params, ok := allowed[container]
+	if !ok {
+		return fmt.Errorf("%w: %s", ErrUnsupportedContainer, container)
+	}
+
+	if vcodec != "" && vcodec != "none" && !slices.Contains(params.Video, vcodec) {
+		return fmt.Errorf("%w: %s", ErrUnsupportedVCodec, vcodec)
+	}
+	if acodec != "" && acodec != "none" && !slices.Contains(params.Audio, acodec) {
+		return fmt.Errorf("%w: %s", ErrUnsupportedACodec, acodec)
+	}
+
+	if vcodec == "none" && acodec == "none" {
+		return ErrNoStreamsSelected
+	}
+
+	return nil
 }

@@ -146,7 +146,8 @@ func validateMediaDurationSeconds(actualSeconds, maxSeconds int) error {
 	return nil
 }
 
-func (c *Client) buildDownloadArgs(url string, formatID string) []string {
+func (c *Client) buildDownloadArgs(url string, options DownloadOptions) []string {
+	formatID := options.FormatID
 	args := []string{
 		"-f", formatID,
 		"-P", "temp:" + filepath.Join(c.tempDir, ".parts"),
@@ -160,7 +161,11 @@ func (c *Client) buildDownloadArgs(url string, formatID string) []string {
 	}
 
 	if strings.Contains(formatID, "+") {
-		args = append(args, "--merge-output-format", "mp4")
+		outputFormat := "mp4"
+		if options.Container != "" {
+			outputFormat = options.Container
+		}
+		args = append(args, "--merge-output-format", outputFormat)
 	}
 
 	if c.MaxDurationSecs > 0 {

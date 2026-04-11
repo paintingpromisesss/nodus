@@ -3,10 +3,15 @@ package ytdlp
 import "errors"
 
 var (
-	ErrMediaDurationTooLong  = errors.New("media duration exceeds limit")
-	ErrEmptyURL              = errors.New("url is required")
-	ErrFormatIDRequired      = errors.New("format id is required")
-	ErrDownloadedPathNotFile = errors.New("downloaded path is not a file")
+	ErrMediaDurationTooLong               = errors.New("media duration exceeds limit")
+	ErrEmptyURL                           = errors.New("url is required")
+	ErrFormatIDRequired                   = errors.New("format id is required")
+	ErrDownloadedPathNotFile              = errors.New("downloaded path is not a file")
+	ErrUnsupportedContainer               = errors.New("unsupported container")
+	ErrUnsupportedVCodec                  = errors.New("unsupported video codec for selected container")
+	ErrUnsupportedACodec                  = errors.New("unsupported audio codec for selected container")
+	ErrContainerRequiredForCodecSelection = errors.New("container is required when codec is selected")
+	ErrNoStreamsSelected                  = errors.New("at least one of video or audio stream must be selected")
 )
 
 type Client struct {
