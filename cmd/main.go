@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/paintingpromisesss/nodus-backend/internal/config"
+	"github.com/paintingpromisesss/nodus-backend/internal/ffmpeg"
 	"github.com/paintingpromisesss/nodus-backend/internal/logger"
 	"github.com/paintingpromisesss/nodus-backend/internal/server"
 	"github.com/paintingpromisesss/nodus-backend/internal/ytdlp"
@@ -23,6 +24,8 @@ func main() {
 		log.Fatalf("Failed to create logger: %v", err)
 	}
 
+	ffmpegClient := ffmpeg.NewClient()
+
 	ytdlpClient := ytdlp.NewClient(
 		config.YTDLP.TempDir,
 		config.YTDLP.MaxDurationSecs,
@@ -30,6 +33,7 @@ func main() {
 		config.YTDLP.CurrentlyLiveAvailable,
 		config.YTDLP.PlaylistAvailable,
 		config.YTDLP.UseJSRuntime,
+		ffmpegClient,
 	)
 
 	srv := server.New(config.Server, logger, ytdlpClient)

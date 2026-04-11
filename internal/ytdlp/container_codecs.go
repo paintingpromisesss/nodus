@@ -34,27 +34,6 @@ func normalizeContainer(container string) string {
 	return strings.ToLower(strings.TrimSpace(container))
 }
 
-func isCompatible(container, vcodec, acodec string) bool {
-	params, ok := allowed[container]
-	if !ok {
-		return false
-	}
-	allowedVideo := false
-	allowedAudio := false
-	if vcodec != "none" {
-		if slices.Contains(params.Video, vcodec) {
-			allowedVideo = true
-		}
-	}
-	if acodec != "none" {
-		if slices.Contains(params.Audio, acodec) {
-			allowedAudio = true
-		}
-	}
-
-	return allowedVideo && allowedAudio
-}
-
 func validateContainerCodecs(container, vcodec, acodec string) error {
 	container = normalizeContainer(container)
 	vcodec = normalizeCodec(vcodec)

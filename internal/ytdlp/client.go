@@ -1,6 +1,10 @@
 package ytdlp
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/paintingpromisesss/nodus-backend/internal/ffmpeg"
+)
 
 var (
 	ErrMediaDurationTooLong               = errors.New("media duration exceeds limit")
@@ -21,6 +25,7 @@ type Client struct {
 	CurrentlyLiveAvailable bool
 	PlaylistAvailable      bool
 	JSRuntimeSpec          string
+	FFmpegClient           *ffmpeg.Client
 }
 
 func NewClient(tempDir string,
@@ -29,6 +34,7 @@ func NewClient(tempDir string,
 	currentlyLiveAvailable bool,
 	playlistAvailable bool,
 	useJSRuntime bool,
+	ffmpegClient *ffmpeg.Client,
 ) *Client {
 	normalizedTempDir := normalizeTempDir(tempDir)
 
@@ -39,5 +45,6 @@ func NewClient(tempDir string,
 		CurrentlyLiveAvailable: currentlyLiveAvailable,
 		PlaylistAvailable:      playlistAvailable,
 		JSRuntimeSpec:          detectJSRuntimeSpec(useJSRuntime),
+		FFmpegClient:           ffmpegClient,
 	}
 }

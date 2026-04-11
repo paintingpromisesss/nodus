@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/paintingpromisesss/nodus-backend/internal/ffmpeg"
 )
 
 type DownloadResult struct {
@@ -63,8 +65,14 @@ func (c *Client) Download(ctx context.Context, url string, options DownloadOptio
 		return nil, ErrDownloadedPathNotFile
 	}
 
+	convertOptions := ffmpeg.ConvertOptions{
+		VCodec:    options.VCodec,
+		ACodec:    options.ACodec,
+		Container: options.Container,
+	}
+
 	if options.Container != "" || options.ACodec != "" || options.VCodec != "" {
-		convertedPath, err := convertMediaFile(ctx, filePath, options)
+		convertedPath, err := c.FFmpegClient.Convert(ctx, filePath, convertOptions)
 		if err != nil {
 			return nil, err
 		}
@@ -85,57 +93,4 @@ func (c *Client) Download(ctx context.Context, url string, options DownloadOptio
 		ContentType:  contentType,
 		DetectedMIME: contentType,
 	}, nil
-}
-
-func convertMediaFile(ctx context.Context, inputPath string, options DownloadOptions) (string, error) {
-	container := options.Container
-	if container == "" {
-		container = strings.TrimPrefix(strings.ToLower(filepath.Ext(inputPath)), ".")
-	}
-	outputPath := strings.TrimSuffix(inputPath, filepath.Ext(inputPath)) + ".converted." + container
-
-	videoCodec, ok := ffmpegVideoCodecs[options.VCodec]
-	if !ok {
-		videoCodec = "copy"
-	}
-	audioCodec, ok := ffmpegAudioCodecs[options.ACodec]
-	if !ok {
-		audioCodec = "copy"
-	}
-
-	args := []string{"-y", "-i", inputPath}
-	if options.VCodec == "none" {
-		args = append(args, "-vn")
-	} else {
-		args = append(args, "-c:v", videoCodec)
-	}
-	if options.ACodec == "none" {
-		args = append(args, "-an")
-	} else {
-		args = append(args, "-c:a", audioCodec)
-	}
-	args = append(args, outputPath)
-
-	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return "", fmt.Errorf("ffmpeg post-process failed: %w: %s", err, strings.TrimSpace(string(output)))
-	}
-
-	return outputPath, nil
-}
-
-var ffmpegVideoCodecs = map[string]string{
-	"h264": "libx264",
-	"hevc": "libx265",
-	"av1":  "libaom-av1",
-	"vp9":  "libvpx-vp9",
-	"vp8":  "libvpx",
-}
-
-var ffmpegAudioCodecs = map[string]string{
-	"aac":    "aac",
-	"mp3":    "libmp3lame",
-	"opus":   "libopus",
-	"vorbis": "libvorbis",
 }
