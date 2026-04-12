@@ -3,11 +3,16 @@ import { useMemo, useState } from 'react';
 type MediaFormat = {
   format_id: string;
   format_note: string;
+  filesize: number;
+  filesize_approx: number;
   acodec: string;
   vcodec: string;
   ext: string;
+  width: number;
+  height: number;
   resolution: string;
   abr: number;
+  vbr: number;
   fps: number;
 };
 
@@ -50,6 +55,38 @@ const formatDuration = (seconds: number): string => {
   const s = seconds % 60;
   if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   return `${m}:${String(s).padStart(2, '0')}`;
+};
+
+const humanizeCodec = (codec: string): string => {
+  if (!codec || codec === 'none') return 'Unknown';
+  return codec.toUpperCase();
+};
+
+const formatBitrate = (value: number): string => {
+  if (!value || Number.isNaN(value)) return 'N/A';
+  return `${Math.round(value)} kbps`;
+};
+
+const formatSize = (value: number): string => {
+  if (!value || Number.isNaN(value)) return 'N/A';
+  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+const formatVideoLabel = (format: MediaFormat): string => {
+  const size = format.filesize || format.filesize_approx;
+  const dimensions =
+    format.width > 0 && format.height > 0
+      ? `${format.width}x${format.height}`
+      : format.resolution && format.resolution !== 'audio only'
+        ? format.resolution
+        : 'Unknown';
+
+  return `${dimensions} (${humanizeCodec(format.vcodec)}) | ${formatBitrate(format.vbr)} | ${formatSize(size)}`;
+};
+
+const formatAudioLabel = (format: MediaFormat): string => {
+  const size = format.filesize || format.filesize_approx;
+  return `${humanizeCodec(format.acodec)} | ${formatBitrate(format.abr)} | ${formatSize(size)}`;
 };
 
 const parseSSEChunk = (
@@ -280,7 +317,12 @@ export function App() {
               <div className="result-content">
                 <header>
                   <h3>{item.metadata?.title ?? item.url}</h3>
-                  <p className="meta-row">URL: {item.url}</p>
+                  <p className="meta-row">
+                    URL:{' '}
+                    <a href={item.url} target="_blank" rel="noreferrer">
+                      {item.url}
+                    </a>
+                  </p>
                   <p className="meta-row">Duration: {formatDuration(item.metadata?.duration ?? 0)}</p>
                 </header>
 
@@ -301,7 +343,7 @@ export function App() {
                           <option value="">Без видео</option>
                           {videoOptions.map((format) => (
                             <option key={format.format_id} value={format.format_id}>
-                              {format.format_id} · {format.ext} · {format.resolution || 'n/a'} · {format.vcodec}
+                              {formatVideoLabel(format)}
                             </option>
                           ))}
                         </select>
@@ -318,7 +360,7 @@ export function App() {
                           <option value="">Без аудио</option>
                           {audioOptions.map((format) => (
                             <option key={format.format_id} value={format.format_id}>
-                              {format.format_id} · {format.ext} · {format.abr ? `${Math.round(format.abr)} kbps` : 'n/a'} · {format.acodec}
+                              {formatAudioLabel(format)}
                             </option>
                           ))}
                         </select>
