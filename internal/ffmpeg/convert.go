@@ -3,6 +3,7 @@ package ffmpeg
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -16,10 +17,9 @@ type ConvertOptions struct {
 
 func (c *Client) Convert(ctx context.Context, inputPath string, options ConvertOptions) (string, error) {
 	container := normalizeContainer(options.Container, inputPath)
+	outputPath, tempOutputPath, replaceOriginal := buildOutputPaths(inputPath, container)
 
-	outputPath := strings.TrimPrefix(inputPath, filepath.Ext(inputPath)) + ".converted." + container
-
-	args := buildFFmpegArgs(inputPath, outputPath, options)
+	args := buildFFmpegArgs(inputPath, tempOutputPath, options)
 
 	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
 
@@ -27,6 +27,17 @@ func (c *Client) Convert(ctx context.Context, inputPath string, options ConvertO
 	if err != nil {
 		return "", fmt.Errorf("ffmpeg conversion failed: %w: %s", err, strings.TrimSpace(string(output)))
 	}
+
+	if replaceOriginal {
+		if err := os.Remove(inputPath); err != nil {
+			_ = os.Remove(tempOutputPath)
+			return "", fmt.Errorf("remove original file before replacement: %w", err)
+		}
+		if err := os.Rename(tempOutputPath, outputPath); err != nil {
+			return "", fmt.Errorf("replace original converted file: %w", err)
+		}
+	}
+
 	return outputPath, nil
 }
 
@@ -57,6 +68,17 @@ func normalizeContainer(container, inputPath string) string {
 	}
 
 	return container
+}
+
+func buildOutputPaths(inputPath, container string) (outputPath, tempOutputPath string, replaceOriginal bool) {
+	basePath := strings.TrimSuffix(inputPath, filepath.Ext(inputPath))
+	outputPath = basePath + "." + container
+
+	if outputPath == inputPath {
+		return outputPath, basePath + ".tmp-convert." + container, true
+	}
+
+	return outputPath, outputPath, false
 }
 
 func normalizeFFmpegVCodec(codec string) string {

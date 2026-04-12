@@ -160,14 +160,6 @@ func (c *Client) buildDownloadArgs(url string, options DownloadOptions) []string
 		args = append(args, "--no-playlist")
 	}
 
-	if strings.Contains(formatID, "+") {
-		outputFormat := "mp4"
-		if options.Container != "" {
-			outputFormat = options.Container
-		}
-		args = append(args, "--merge-output-format", outputFormat)
-	}
-
 	if c.MaxDurationSecs > 0 {
 		if !c.CurrentlyLiveAvailable {
 			args = append(args, "--match-filter", "duration <= "+fmt.Sprint(c.MaxDurationSecs)+" & !is_live")
