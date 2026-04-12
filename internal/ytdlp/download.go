@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/paintingpromisesss/nodus-backend/internal/ffmpeg"
 )
 
 type DownloadResult struct {
@@ -31,12 +33,18 @@ func (c *Client) Download(ctx context.Context, url string, options DownloadOptio
 	if strings.TrimSpace(options.FormatID) == "" {
 		return nil, ErrFormatIDRequired
 	}
+	options.ACodec = normalizeCodec(options.ACodec)
+	options.VCodec = normalizeCodec(options.VCodec)
+	options.Container = normalizeContainer(options.Container)
+	if err := validateContainerCodecs(options.Container, options.VCodec, options.ACodec); err != nil {
+		return nil, err
+	}
 
 	if err := c.prepareRuntimeDirectories(); err != nil {
 		return nil, err
 	}
 
-	args := c.buildDownloadArgs(url, options.FormatID)
+	args := c.buildDownloadArgs(url, options)
 	cmd := exec.CommandContext(ctx, "yt-dlp", args...)
 	cmd.Env = c.defaultEnvironment()
 	output, err := cmd.CombinedOutput()
@@ -55,6 +63,23 @@ func (c *Client) Download(ctx context.Context, url string, options DownloadOptio
 	}
 	if info.IsDir() {
 		return nil, ErrDownloadedPathNotFile
+	}
+
+	convertOptions := ffmpeg.ConvertOptions{
+		VCodec:    options.VCodec,
+		ACodec:    options.ACodec,
+		Container: options.Container,
+	}
+
+	if options.Container != "" || options.ACodec != "" || options.VCodec != "" {
+		convertedPath, err := c.FFmpegClient.Convert(ctx, filePath, convertOptions)
+		if err != nil {
+			return nil, err
+		}
+		if convertedPath != filePath {
+			_ = os.Remove(filePath)
+			filePath = convertedPath
+		}
 	}
 
 	contentType := mime.TypeByExtension(strings.ToLower(filepath.Ext(filePath)))

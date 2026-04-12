@@ -1,12 +1,21 @@
 package ytdlp
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/paintingpromisesss/nodus-backend/internal/ffmpeg"
+)
 
 var (
-	ErrMediaDurationTooLong  = errors.New("media duration exceeds limit")
-	ErrEmptyURL              = errors.New("url is required")
-	ErrFormatIDRequired      = errors.New("format id is required")
-	ErrDownloadedPathNotFile = errors.New("downloaded path is not a file")
+	ErrMediaDurationTooLong               = errors.New("media duration exceeds limit")
+	ErrEmptyURL                           = errors.New("url is required")
+	ErrFormatIDRequired                   = errors.New("format id is required")
+	ErrDownloadedPathNotFile              = errors.New("downloaded path is not a file")
+	ErrUnsupportedContainer               = errors.New("unsupported container")
+	ErrUnsupportedVCodec                  = errors.New("unsupported video codec for selected container")
+	ErrUnsupportedACodec                  = errors.New("unsupported audio codec for selected container")
+	ErrContainerRequiredForCodecSelection = errors.New("container is required when codec is selected")
+	ErrNoStreamsSelected                  = errors.New("at least one of video or audio stream must be selected")
 )
 
 type Client struct {
@@ -16,6 +25,7 @@ type Client struct {
 	CurrentlyLiveAvailable bool
 	PlaylistAvailable      bool
 	JSRuntimeSpec          string
+	FFmpegClient           *ffmpeg.Client
 }
 
 func NewClient(tempDir string,
@@ -24,6 +34,7 @@ func NewClient(tempDir string,
 	currentlyLiveAvailable bool,
 	playlistAvailable bool,
 	useJSRuntime bool,
+	ffmpegClient *ffmpeg.Client,
 ) *Client {
 	normalizedTempDir := normalizeTempDir(tempDir)
 
@@ -34,5 +45,6 @@ func NewClient(tempDir string,
 		CurrentlyLiveAvailable: currentlyLiveAvailable,
 		PlaylistAvailable:      playlistAvailable,
 		JSRuntimeSpec:          detectJSRuntimeSpec(useJSRuntime),
+		FFmpegClient:           ffmpegClient,
 	}
 }
