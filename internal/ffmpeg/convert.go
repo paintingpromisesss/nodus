@@ -106,8 +106,13 @@ var ffmpegVideoCodecs = map[string]string{
 }
 
 var ffmpegAudioCodecs = map[string]string{
-	"aac":    "aac",
-	"mp3":    "libmp3lame",
-	"opus":   "libopus",
-	"vorbis": "libvorbis",
+	"aac":       "aac",
+	"alac":      "alac",
+	"flac":      "flac",
+	"mp3":       "libmp3lame",
+	"opus":      "libopus",
+	"pcm_f32le": "pcm_f32le",
+	"pcm_s16le": "pcm_s16le",
+	"pcm_s24le": "pcm_s24le",
+	"vorbis":    "libvorbis",
 }

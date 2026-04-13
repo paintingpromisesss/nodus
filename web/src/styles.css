@@ -126,12 +126,20 @@ select {
 
 .result-card {
   display: grid;
-  grid-template-columns: 230px 1fr;
-  gap: 16px;
+  grid-template-columns: 230px minmax(0, 1fr);
+  grid-template-areas:
+    "thumb summary"
+    "controls controls";
+  gap: 14px 16px;
+  align-items: start;
   border-radius: 20px;
   border: 1px solid #383838;
   background: #202020;
   padding: 14px;
+}
+
+.result-thumb {
+  grid-area: thumb;
 }
 
 .thumb-wrap {
@@ -151,9 +159,22 @@ select {
   object-fit: cover;
 }
 
-.result-content h3 {
+.result-summary {
+  grid-area: summary;
+  min-width: 0;
+}
+
+.result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 16px;
+}
+
+.result-header h3 {
   margin: 0;
   font-size: 20px;
+  line-height: 1.25;
 }
 
 .meta-row {
@@ -172,11 +193,70 @@ select {
   text-decoration: underline;
 }
 
-.grid {
-  margin-top: 10px;
+.conversion-checkbox {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  padding-top: 2px;
+}
+
+.result-controls {
+  grid-area: controls;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 230px minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-areas:
+    "video vcodec container"
+    "audio acodec download";
   gap: 10px;
+  align-items: end;
+}
+
+.field-video {
+  grid-area: video;
+}
+
+.field-container {
+  grid-area: container;
+}
+
+.field-vcodec {
+  grid-area: vcodec;
+}
+
+.field-audio {
+  grid-area: audio;
+}
+
+.field-acodec {
+  grid-area: acodec;
+}
+
+.field-download {
+  grid-area: download;
+}
+
+.stream-label,
+.field-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.action-field {
+  display: grid;
+  gap: 4px;
+}
+
+.field-label-hidden {
+  visibility: hidden;
+}
+
+.field-download .download-btn {
+  width: 100%;
+  margin-top: 0;
+  height: 40px;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 label {
@@ -193,9 +273,33 @@ label {
 @media (max-width: 900px) {
   .result-card {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "thumb"
+      "summary"
+      "controls";
   }
 
-  .grid {
+  .result-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .conversion-checkbox {
+    white-space: normal;
+  }
+
+  .result-controls {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "video"
+      "container"
+      "vcodec"
+      "audio"
+      "acodec"
+      "download";
+  }
+
+  .field-label-hidden {
+    display: none;
   }
 }

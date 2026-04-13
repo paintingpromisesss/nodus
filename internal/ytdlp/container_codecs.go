@@ -14,15 +14,37 @@ type Params struct {
 var allowed = map[string]Params{
 	"mp4": {
 		Video: []string{"h264", "hevc", "av1", "vp9"},
-		Audio: []string{"aac", "mp3", "opus"},
+		Audio: []string{"aac", "alac", "flac", "mp3", "opus"},
+	},
+	"mov": {
+		Video: []string{"h264", "hevc"},
+		Audio: []string{"aac", "alac", "mp3", "pcm_s16le", "pcm_s24le", "pcm_f32le"},
+	},
+	"m4a": {
+		Audio: []string{"aac", "alac", "mp3"},
 	},
 	"webm": {
-		Video: []string{"vp9", "vp8"},
+		Video: []string{"vp9", "vp8", "av1"},
 		Audio: []string{"opus", "vorbis"},
+	},
+	"ogg": {
+		Audio: []string{"opus", "vorbis", "flac"},
+	},
+	"opus": {
+		Audio: []string{"opus"}, // alias for ogg+opus
+	},
+	"mp3": {
+		Audio: []string{"mp3"},
+	},
+	"flac": {
+		Audio: []string{"flac"},
+	},
+	"wav": {
+		Audio: []string{"pcm_s16le", "pcm_s24le", "pcm_f32le"},
 	},
 	"mkv": {
 		Video: []string{"h264", "hevc", "av1", "vp9", "vp8"},
-		Audio: []string{"aac", "mp3", "opus", "vorbis"},
+		Audio: []string{"aac", "alac", "flac", "mp3", "opus", "pcm_s16le", "pcm_s24le", "pcm_f32le", "vorbis"},
 	},
 }
 
