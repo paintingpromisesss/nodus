@@ -39,6 +39,22 @@ type ResultItem = {
   downloading: boolean;
 };
 
+type DownloadOptionsPayload = {
+  container?: string;
+  vcodec?: string;
+  acodec?: string;
+};
+
+type DownloadRequestPayload = {
+  url: string;
+  format_id: string;
+  options?: {
+    container?: string;
+    vcodec?: string;
+    acodec?: string;
+  };
+};
+
 const CONTAINER_MAP: Record<string, { video: string[]; audio: string[] }> = {
   mp4: { video: ['h264', 'hevc', 'av1', 'vp9'], audio: ['aac', 'mp3', 'opus'] },
   webm: { video: ['vp9', 'vp8'], audio: ['opus', 'vorbis'] },
@@ -87,6 +103,26 @@ const formatVideoLabel = (format: MediaFormat): string => {
 const formatAudioLabel = (format: MediaFormat): string => {
   const size = format.filesize || format.filesize_approx;
   return `${humanizeCodec(format.acodec)} | ${formatBitrate(format.abr)} | ${formatSize(size)}`;
+};
+
+const buildDownloadRequestPayload = (
+  url: string,
+  formatID: string,
+  options?: DownloadOptionsPayload,
+): DownloadRequestPayload => {
+  const normalizedOptions = {
+    container: options?.container?.trim() || undefined,
+    vcodec: options?.vcodec?.trim() || undefined,
+    acodec: options?.acodec?.trim() || undefined,
+  };
+
+  const hasOptions = Object.values(normalizedOptions).some(Boolean);
+
+  return {
+    url,
+    format_id: formatID,
+    ...(hasOptions ? { options: normalizedOptions } : {}),
+  };
 };
 
 const parseSSEChunk = (
@@ -216,15 +252,13 @@ export function App() {
       const response = await fetch('/download', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url: item.url,
-          options: {
-            format_id: formatID,
+        body: JSON.stringify(
+          buildDownloadRequestPayload(item.url, formatID, {
             container: item.container,
             vcodec: item.vcodec,
             acodec: item.acodec,
-          },
-        }),
+          }),
+        ),
       });
 
       if (!response.ok) {

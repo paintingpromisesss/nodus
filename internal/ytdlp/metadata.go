@@ -96,5 +96,7 @@ func (c *Client) fetchMetadata(ctx context.Context, url string, options FetchOpt
 		return nil, err
 	}
 
+	metadata = removeMixedFormats(metadata)
+
 	return &metadata, nil
 }

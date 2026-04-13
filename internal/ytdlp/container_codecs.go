@@ -26,39 +26,53 @@ var allowed = map[string]Params{
 	},
 }
 
-func normalizeCodec(codec string) string {
-	return strings.ToLower(strings.TrimSpace(codec))
+func normalizeCodec(codec *string) *string {
+	if codec == nil {
+		return nil
+	}
+	normalized := strings.ToLower(strings.TrimSpace(*codec))
+	if normalized == "" {
+		return nil
+	}
+	return &normalized
 }
 
-func normalizeContainer(container string) string {
-	return strings.ToLower(strings.TrimSpace(container))
+func normalizeContainer(container *string) *string {
+	if container == nil {
+		return nil
+	}
+	normalized := strings.ToLower(strings.TrimSpace(*container))
+	if normalized == "" {
+		return nil
+	}
+	return &normalized
 }
 
-func validateContainerCodecs(container, vcodec, acodec string) error {
+func validateContainerCodecs(container, vcodec, acodec *string) error {
 	container = normalizeContainer(container)
 	vcodec = normalizeCodec(vcodec)
 	acodec = normalizeCodec(acodec)
 
-	if container == "" && vcodec == "" && acodec == "" {
+	if container == nil && vcodec == nil && acodec == nil {
 		return nil
 	}
-	if container == "" && (vcodec != "" || acodec != "") {
+	if container == nil && (vcodec != nil || acodec != nil) {
 		return ErrContainerRequiredForCodecSelection
 	}
 
-	params, ok := allowed[container]
+	params, ok := allowed[*container]
 	if !ok {
-		return fmt.Errorf("%w: %s", ErrUnsupportedContainer, container)
+		return fmt.Errorf("%w: %s", ErrUnsupportedContainer, *container)
 	}
 
-	if vcodec != "" && vcodec != "none" && !slices.Contains(params.Video, vcodec) {
-		return fmt.Errorf("%w: %s", ErrUnsupportedVCodec, vcodec)
+	if vcodec != nil && *vcodec != "none" && !slices.Contains(params.Video, *vcodec) {
+		return fmt.Errorf("%w: %s", ErrUnsupportedVCodec, *vcodec)
 	}
-	if acodec != "" && acodec != "none" && !slices.Contains(params.Audio, acodec) {
-		return fmt.Errorf("%w: %s", ErrUnsupportedACodec, acodec)
+	if acodec != nil && *acodec != "none" && !slices.Contains(params.Audio, *acodec) {
+		return fmt.Errorf("%w: %s", ErrUnsupportedACodec, *acodec)
 	}
 
-	if vcodec == "none" && acodec == "none" {
+	if vcodec != nil && *vcodec == "none" && acodec != nil && *acodec == "none" {
 		return ErrNoStreamsSelected
 	}
 
