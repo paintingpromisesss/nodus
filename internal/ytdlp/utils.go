@@ -153,7 +153,7 @@ func (c *Client) buildDownloadArgs(url string, options DownloadOptions) []string
 	args := []string{
 		"-f", formatID,
 		"-P", "temp:" + filepath.Join(c.tempDir, ".parts"),
-		"-o", filepath.Join(c.tempDir, "%(title)s [%(id)s] [%(format_id)s].%(ext)s"),
+		"-o", filepath.Join(c.tempDir, "%(title)s [%(format_id)s].%(ext)s"),
 		"--print", "after_move:filepath",
 	}
 	args = appendJSRuntimeArgs(args, c.JSRuntimeSpec)

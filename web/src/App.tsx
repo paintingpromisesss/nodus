@@ -109,6 +109,45 @@ const CODEC_ALIASES: Record<string, string> = {
 const splitUrls = (raw: string): string[] =>
   Array.from(new Set(raw.split(/[\s,]+/g).map((item) => item.trim()).filter(Boolean)));
 
+const sanitizeDownloadFilename = (value: string): string =>
+  value
+    .replace(/[<>:"/\\|?*\u0000-\u001F]/g, '_')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/[. ]+$/g, '');
+
+const parseDownloadFilename = (disposition: string, fallback: string): string => {
+  const encodedMatch = disposition.match(/filename\*\s*=\s*([^;]+)/i);
+  const encodedValue = encodedMatch?.[1]?.trim().replace(/^"(.*)"$/, '$1');
+  if (encodedValue) {
+    const normalized = encodedValue.replace(/^UTF-8''/i, '');
+    try {
+      return decodeURIComponent(normalized);
+    } catch {
+      return normalized;
+    }
+  }
+
+  const plainMatch = disposition.match(/filename\s*=\s*"([^"]+)"|filename\s*=\s*([^;]+)/i);
+  const plainValue = plainMatch?.[1] ?? plainMatch?.[2];
+  return plainValue?.trim() || fallback;
+};
+
+const buildPreferredDownloadFilename = (item: ResultItem, disposition: string): string => {
+  const title = sanitizeDownloadFilename(item.metadata?.title ?? '');
+  const extension = sanitizeDownloadFilename(item.container || '').toLowerCase();
+
+  if (title && extension) {
+    return `${title}.${extension}`;
+  }
+
+  if (title) {
+    return title;
+  }
+
+  return parseDownloadFilename(disposition, `${item.metadata?.title ?? 'media'}.${item.container}`);
+};
+
 const formatDuration = (seconds: number): string => {
   if (!seconds) return '-';
   const h = Math.floor(seconds / 3600);
@@ -567,8 +606,7 @@ export function App() {
 
       const blob = await response.blob();
       const disposition = response.headers.get('Content-Disposition') ?? '';
-      const fileNameMatch = disposition.match(/filename="?([^";]+)"?/i);
-      const fileName = fileNameMatch?.[1] ?? `${item.metadata?.title ?? 'media'}.${item.container}`;
+      const fileName = buildPreferredDownloadFilename(item, disposition);
 
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
