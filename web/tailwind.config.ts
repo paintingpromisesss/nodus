@@ -40,6 +40,10 @@ export default {
         insetLine: "inset 0 1px 0 rgba(255,255,255,0.05)",
       },
       keyframes: {
+        "fade-in": {
+          "0%": { opacity: "0" },
+          "100%": { opacity: "1" },
+        },
         "fade-up": {
           "0%": { opacity: "0", transform: "translateY(18px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
@@ -50,6 +54,7 @@ export default {
         },
       },
       animation: {
+        "fade-in": "fade-in 180ms ease-out",
         "fade-up": "fade-up 360ms ease-out",
         shimmer: "shimmer 1.8s linear infinite",
       },
