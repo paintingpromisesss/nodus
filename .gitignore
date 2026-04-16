@@ -5,3 +5,6 @@
 *.tsbuildinfo
 node_modules
 dist
+
+demo.json
+nodus.html

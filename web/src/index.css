@@ -1,0 +1,96 @@
+@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 24 10% 8%;
+    --foreground: 34 35% 92%;
+    --card: 18 7% 12%;
+    --card-foreground: 34 35% 92%;
+    --popover: 18 7% 12%;
+    --popover-foreground: 34 35% 92%;
+    --primary: 35 52% 66%;
+    --primary-foreground: 32 31% 10%;
+    --secondary: 24 8% 18%;
+    --secondary-foreground: 34 35% 92%;
+    --muted: 24 7% 16%;
+    --muted-foreground: 30 14% 66%;
+    --accent: 35 52% 66%;
+    --accent-foreground: 32 31% 10%;
+    --destructive: 0 70% 45%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 35 30% 25%;
+    --input: 24 8% 20%;
+    --ring: 35 52% 66%;
+    --radius: 1.2rem;
+    --line: rgba(218, 183, 129, 0.16);
+    --line-strong: rgba(218, 183, 129, 0.34);
+    --accent-2: #e7c591;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply min-h-screen bg-background font-sans text-foreground antialiased;
+    background:
+      radial-gradient(circle at top, rgba(214, 176, 122, 0.09), transparent 32%),
+      radial-gradient(circle at bottom, rgba(214, 176, 122, 0.05), transparent 30%),
+      linear-gradient(180deg, #171513 0%, #0f0e0d 100%);
+  }
+
+  ::selection {
+    background: rgba(231, 197, 145, 0.28);
+  }
+}
+
+@layer components {
+  .nodus-surface {
+    background: linear-gradient(180deg, rgba(34, 34, 34, 0.92), rgba(21, 21, 21, 0.96));
+    border: 1px solid var(--line);
+    box-shadow:
+      0 28px 60px rgba(0, 0, 0, 0.32),
+      inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(16px);
+  }
+
+  .nodus-alert {
+    background: linear-gradient(180deg, rgba(40, 21, 21, 0.88), rgba(22, 12, 12, 0.94));
+    backdrop-filter: blur(14px);
+  }
+
+  .hero-title {
+    @apply font-display text-5xl text-foreground sm:text-6xl md:text-7xl;
+    line-height: 0.88;
+    letter-spacing: -0.055em;
+  }
+
+  .section-kicker {
+    color: var(--accent-2);
+    @apply text-xs uppercase;
+    letter-spacing: 0.32em;
+  }
+
+  .nodus-dot {
+    @apply inline-block size-1 rounded-full;
+    background-color: hsl(var(--accent));
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .text-pretty {
+    text-wrap: pretty;
+  }
+}
