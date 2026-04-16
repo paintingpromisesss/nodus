@@ -22,10 +22,9 @@ import {
   type SuccessMediaCard,
 } from "@/lib/media";
 
-const INITIAL_INPUT = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
 
 export default function App() {
-  const [input, setInput] = React.useState(INITIAL_INPUT);
+  const [input, setInput] = React.useState("");
   const [invalidLines, setInvalidLines] = React.useState<string[]>([]);
   const [cards, setCards] = React.useState<MediaCardRecord[]>([]);
   const [batchFatal, setBatchFatal] = React.useState<string | null>(null);
