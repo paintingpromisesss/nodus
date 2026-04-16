@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -48,9 +49,83 @@ func setSSEMetadataHeaders(c fiber.Ctx) {
 
 func setDownloadHeaders(c fiber.Ctx, filename string, contentType string, contentLength int64) {
 	c.Set("Content-Type", contentType)
-	c.Set("Content-Disposition", `attachment; filename="`+filename+`"`)
+	c.Set("Content-Disposition", buildContentDisposition(filename))
 	c.Set("Content-Length", fmt.Sprintf("%d", contentLength))
 	c.Set("Access-Control-Expose-Headers", "Content-Disposition, Content-Length, Content-Type")
+}
+
+func buildContentDisposition(filename string) string {
+	fallback := buildASCIIFilenameFallback(filename)
+	encoded := url.PathEscape(filename)
+	return `attachment; filename="` + fallback + `"; filename*=UTF-8''` + encoded
+}
+
+func buildASCIIFilenameFallback(filename string) string {
+	var builder strings.Builder
+	builder.Grow(len(filename))
+
+	for _, r := range filename {
+		if transliterated, ok := cyrillicFilenameFallback[r]; ok {
+			builder.WriteString(transliterated)
+			continue
+		}
+
+		switch {
+		case r >= 'a' && r <= 'z':
+			builder.WriteRune(r)
+		case r >= 'A' && r <= 'Z':
+			builder.WriteRune(r)
+		case r >= '0' && r <= '9':
+			builder.WriteRune(r)
+		case strings.ContainsRune("!#$&+-.^_`|~()[]{}", r):
+			builder.WriteRune(r)
+		default:
+			builder.WriteByte('_')
+		}
+	}
+
+	fallback := builder.String()
+	if strings.Trim(fallback, "_.") == "" {
+		return "download.bin"
+	}
+
+	return fallback
+}
+
+var cyrillicFilenameFallback = map[rune]string{
+	'А': "A", 'а': "a",
+	'Б': "B", 'б': "b",
+	'В': "V", 'в': "v",
+	'Г': "G", 'г': "g",
+	'Д': "D", 'д': "d",
+	'Е': "E", 'е': "e",
+	'Ё': "Yo", 'ё': "yo",
+	'Ж': "Zh", 'ж': "zh",
+	'З': "Z", 'з': "z",
+	'И': "I", 'и': "i",
+	'Й': "Y", 'й': "y",
+	'К': "K", 'к': "k",
+	'Л': "L", 'л': "l",
+	'М': "M", 'м': "m",
+	'Н': "N", 'н': "n",
+	'О': "O", 'о': "o",
+	'П': "P", 'п': "p",
+	'Р': "R", 'р': "r",
+	'С': "S", 'с': "s",
+	'Т': "T", 'т': "t",
+	'У': "U", 'у': "u",
+	'Ф': "F", 'ф': "f",
+	'Х': "Kh", 'х': "kh",
+	'Ц': "Ts", 'ц': "ts",
+	'Ч': "Ch", 'ч': "ch",
+	'Ш': "Sh", 'ш': "sh",
+	'Щ': "Sch", 'щ': "sch",
+	'Ъ': "", 'ъ': "",
+	'Ы': "Y", 'ы': "y",
+	'Ь': "", 'ь': "",
+	'Э': "E", 'э': "e",
+	'Ю': "Yu", 'ю': "yu",
+	'Я': "Ya", 'я': "ya",
 }
 
 func sanitizeAttachmentFilename(name string) string {

@@ -3,6 +3,8 @@ package ytdlp
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"os/exec"
 	"strings"
 )
@@ -29,6 +31,8 @@ type Format struct {
 	FileSizeApprox int64   `json:"filesize_approx"`
 	ACodec         string  `json:"acodec"`
 	VCodec         string  `json:"vcodec"`
+	AudioExt       string  `json:"audio_ext"`
+	VideoExt       string  `json:"video_ext"`
 	Ext            string  `json:"ext"`
 	Container      string  `json:"container"`
 	Width          int     `json:"width"`
@@ -85,7 +89,14 @@ func (c *Client) fetchMetadata(ctx context.Context, url string, options FetchOpt
 	cmd.Env = c.defaultEnvironment()
 	output, err := cmd.Output()
 	if err != nil {
-		return nil, err
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			stderr := strings.TrimSpace(string(exitErr.Stderr))
+			if stderr != "" {
+				return nil, fmt.Errorf("yt-dlp metadata fetch failed: %w: %s", err, stderr)
+			}
+		}
+		return nil, fmt.Errorf("yt-dlp metadata fetch failed: %w", err)
 	}
 
 	var metadata MediaMetadata

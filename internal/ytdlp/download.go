@@ -8,8 +8,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-
-	"github.com/paintingpromisesss/nodus-backend/internal/ffmpeg"
 )
 
 type DownloadResult struct {
@@ -21,9 +19,9 @@ type DownloadResult struct {
 
 type DownloadOptions struct {
 	FormatID  string
-	ACodec    string
-	VCodec    string
-	Container string
+	ACodec    *string
+	VCodec    *string
+	Container *string
 }
 
 func (c *Client) Download(ctx context.Context, url string, options DownloadOptions) (*DownloadResult, error) {
@@ -65,13 +63,9 @@ func (c *Client) Download(ctx context.Context, url string, options DownloadOptio
 		return nil, ErrDownloadedPathNotFile
 	}
 
-	convertOptions := ffmpeg.ConvertOptions{
-		VCodec:    options.VCodec,
-		ACodec:    options.ACodec,
-		Container: options.Container,
-	}
+	if options.Container != nil || options.ACodec != nil || options.VCodec != nil {
+		convertOptions := buildConvertOptions(options)
 
-	if options.Container != "" || options.ACodec != "" || options.VCodec != "" {
 		convertedPath, err := c.FFmpegClient.Convert(ctx, filePath, convertOptions)
 		if err != nil {
 			return nil, err

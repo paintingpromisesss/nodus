@@ -59,7 +59,16 @@ func (s *Server) handleDownload(c fiber.Ctx) error {
 		return RespondWithError(c, fiber.StatusBadRequest, ErrFormatIDRequired)
 	}
 
-	result, err := s.ytdlp.Download(c.Context(), request.URL, ytdlp.DownloadOptions(request.DownloadOptions))
+	downloadOptions := ytdlp.DownloadOptions{
+		FormatID: request.FormatID,
+	}
+	if request.DownloadOptions != nil {
+		downloadOptions.ACodec = request.DownloadOptions.ACodec
+		downloadOptions.VCodec = request.DownloadOptions.VCodec
+		downloadOptions.Container = request.DownloadOptions.Container
+	}
+
+	result, err := s.ytdlp.Download(c.Context(), request.URL, downloadOptions)
 	if err != nil {
 		return RespondWithError(c, fiber.StatusBadRequest, err)
 	}

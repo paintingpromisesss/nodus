@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/paintingpromisesss/nodus-backend/internal/ffmpeg"
 )
 
 func detectJSRuntimeSpec(enabled bool) string {
@@ -151,7 +153,7 @@ func (c *Client) buildDownloadArgs(url string, options DownloadOptions) []string
 	args := []string{
 		"-f", formatID,
 		"-P", "temp:" + filepath.Join(c.tempDir, ".parts"),
-		"-o", filepath.Join(c.tempDir, "%(title)s [%(id)s] [%(format_id)s].%(ext)s"),
+		"-o", filepath.Join(c.tempDir, "%(title)s [%(format_id)s].%(ext)s"),
 		"--print", "after_move:filepath",
 	}
 	args = appendJSRuntimeArgs(args, c.JSRuntimeSpec)
@@ -187,4 +189,18 @@ func parseDownloadedFilePathBytes(output []byte) (string, error) {
 		return filepath.Clean(line), nil
 	}
 	return "", fmt.Errorf("yt-dlp did not return downloaded filepath")
+}
+
+func buildConvertOptions(options DownloadOptions) ffmpeg.ConvertOptions {
+	convertOptions := ffmpeg.ConvertOptions{}
+	if options.VCodec != nil {
+		convertOptions.VCodec = *options.VCodec
+	}
+	if options.ACodec != nil {
+		convertOptions.ACodec = *options.ACodec
+	}
+	if options.Container != nil {
+		convertOptions.Container = *options.Container
+	}
+	return convertOptions
 }
