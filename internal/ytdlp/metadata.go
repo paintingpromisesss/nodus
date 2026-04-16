@@ -31,6 +31,8 @@ type Format struct {
 	FileSizeApprox int64   `json:"filesize_approx"`
 	ACodec         string  `json:"acodec"`
 	VCodec         string  `json:"vcodec"`
+	AudioExt       string  `json:"audio_ext"`
+	VideoExt       string  `json:"video_ext"`
 	Ext            string  `json:"ext"`
 	Container      string  `json:"container"`
 	Width          int     `json:"width"`
@@ -104,8 +106,6 @@ func (c *Client) fetchMetadata(ctx context.Context, url string, options FetchOpt
 	if err := validateMediaDurationSeconds(metadata.Duration, c.MaxDurationSecs); err != nil {
 		return nil, err
 	}
-
-	metadata = removeMixedFormats(metadata)
 
 	return &metadata, nil
 }

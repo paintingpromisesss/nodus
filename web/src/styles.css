@@ -196,22 +196,84 @@ select {
 .conversion-checkbox {
   flex: 0 0 auto;
   white-space: nowrap;
-  padding-top: 2px;
+  justify-self: flex-end;
 }
 
 .result-controls {
   grid-area: controls;
   display: grid;
   grid-template-columns: 230px minmax(0, 1fr) minmax(0, 1fr);
-  grid-template-areas:
-    "video vcodec container"
-    "audio acodec download";
   gap: 10px;
   align-items: end;
 }
 
+.result-controls.separate-controls {
+  grid-template-areas:
+    "video vcodec container"
+    "audio acodec download";
+}
+
+.result-controls.muxed-controls {
+  grid-template-areas:
+    "source vcodec container"
+    "source acodec download";
+}
+
+.header-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.mode-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid #4b4640;
+  border-radius: 999px;
+  background: #1b1a18;
+}
+
+.mode-toggle button {
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #c6c4be;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+
+.mode-toggle button.is-active {
+  background: #d7b37e;
+  color: #201d19;
+  font-weight: 700;
+}
+
+.mode-toggle.is-disabled {
+  opacity: 0.45;
+}
+
+.mode-toggle button:disabled {
+  cursor: not-allowed;
+}
+
 .field-video {
   grid-area: video;
+}
+
+.field-source {
+  grid-area: source;
+}
+
+.result-controls.muxed-controls .field-source {
+  padding-top: 3px;
 }
 
 .field-container {
@@ -286,10 +348,14 @@ label {
 
   .conversion-checkbox {
     white-space: normal;
+    justify-self: auto;
   }
 
   .result-controls {
     grid-template-columns: 1fr;
+  }
+
+  .result-controls.separate-controls {
     grid-template-areas:
       "video"
       "container"
@@ -297,6 +363,23 @@ label {
       "audio"
       "acodec"
       "download";
+  }
+
+  .result-controls.muxed-controls {
+    grid-template-areas:
+      "source"
+      "container"
+      "vcodec"
+      "acodec"
+      "download";
+  }
+
+  .mode-row {
+    justify-content: flex-start;
+  }
+
+  .header-actions {
+    align-items: stretch;
   }
 
   .field-label-hidden {

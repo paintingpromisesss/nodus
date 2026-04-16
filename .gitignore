@@ -2,3 +2,6 @@
 .codex
 
 .gocache
+*.tsbuildinfo
+node_modules
+dist

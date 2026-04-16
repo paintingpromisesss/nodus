@@ -191,19 +191,6 @@ func parseDownloadedFilePathBytes(output []byte) (string, error) {
 	return "", fmt.Errorf("yt-dlp did not return downloaded filepath")
 }
 
-func removeMixedFormats(metadata MediaMetadata) MediaMetadata {
-	cleanFormats := make([]Format, 0, len(metadata.Formats))
-	for _, format := range metadata.Formats {
-		if format.ACodec != "none" && format.VCodec != "none" {
-			continue
-		}
-		cleanFormats = append(cleanFormats, format)
-	}
-
-	metadata.Formats = cleanFormats
-	return metadata
-}
-
 func buildConvertOptions(options DownloadOptions) ffmpeg.ConvertOptions {
 	convertOptions := ffmpeg.ConvertOptions{}
 	if options.VCodec != nil {
