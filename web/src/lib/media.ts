@@ -1,3 +1,5 @@
+import { getPlatformLabel as resolvePlatformLabel } from "@/lib/platforms";
+
 export interface FetchMetadataStreamRequest {
   urls: string[];
   options?: {
@@ -58,6 +60,8 @@ export type ExpandedMode = "original" | "remux" | "convert";
 
 export interface ExpandedConfig {
   isExpanded: boolean;
+  includeVideo: boolean;
+  includeAudio: boolean;
   videoFormatId: string | null;
   audioFormatId: string | "auto";
   mode: ExpandedMode;
@@ -158,16 +162,12 @@ interface ResolvedStreams {
   hasAudio: boolean;
 }
 
-const PLATFORM_MAP: Array<[needle: string, label: string]> = [
-  ["youtube.", "YouTube"],
-  ["youtu.be", "YouTube"],
-  ["soundcloud.", "SoundCloud"],
-  ["vimeo.", "Vimeo"],
-  ["tiktok.", "TikTok"],
-  ["instagram.", "Instagram"],
-  ["x.com", "X"],
-  ["twitter.", "X"],
-];
+interface SelectedStreams {
+  videoFormat: MediaFormat | null;
+  audioFormat: MediaFormat | null;
+  hasVideo: boolean;
+  hasAudio: boolean;
+}
 
 export function normalizeUrlInput(source: string) {
   const seen = new Set<string>();
@@ -214,14 +214,7 @@ export function getDomainFromUrl(value: string) {
 }
 
 export function getPlatformLabel(value: string) {
-  const domain = getDomainFromUrl(value).toLowerCase();
-  const match = PLATFORM_MAP.find(([needle]) => domain.includes(needle));
-  if (match) {
-    return match[1];
-  }
-
-  const head = domain.split(".")[0] || domain;
-  return head ? head.charAt(0).toUpperCase() + head.slice(1) : "Media";
+  return resolvePlatformLabel(value);
 }
 
 export function formatDuration(seconds: number) {
@@ -287,7 +280,7 @@ export function isAudioOnly(format: MediaFormat) {
 }
 
 export function getVideoFormats(metadata: MediaMetadata) {
-  return metadata.formats.filter(hasVideo);
+  return metadata.formats.filter(hasVideo).sort(compareSourceVideoFormats);
 }
 
 export function getAudioOnlyFormats(metadata: MediaMetadata) {
@@ -350,6 +343,8 @@ export function getCompactChoices(metadata: MediaMetadata): CompactChoice[] {
 export function createInitialExpandedConfig(metadata: MediaMetadata): ExpandedConfig {
   return coerceExpandedConfig(metadata, {
     isExpanded: false,
+    includeVideo: getVideoFormats(metadata).length > 0,
+    includeAudio: getVideoFormats(metadata).length > 0 || getAudioOnlyFormats(metadata).length > 0,
     videoFormatId: getVideoFormats(metadata)[0]?.format_id ?? null,
     audioFormatId: getVideoFormats(metadata).length > 0 ? "auto" : getAudioOnlyFormats(metadata)[0]?.format_id ?? "auto",
     mode: "original",
@@ -362,12 +357,26 @@ export function createInitialExpandedConfig(metadata: MediaMetadata): ExpandedCo
 export function coerceExpandedConfig(metadata: MediaMetadata, draft: ExpandedConfig): ExpandedConfig {
   const videoFormats = getVideoFormats(metadata);
   const audioFormats = getAudioOnlyFormats(metadata);
+  const requestedIncludeVideo = Boolean(draft.includeVideo && videoFormats.length > 0);
+  const requestedIncludeAudio = Boolean(
+    draft.includeAudio && (audioFormats.length > 0 || videoFormats.some((format) => hasAudio(format))),
+  );
 
   const selectedVideoFormat =
     videoFormats.find((format) => format.format_id === draft.videoFormatId) ?? videoFormats[0] ?? null;
+  const hasStandaloneAudioFallback = audioFormats.length > 0;
+  const hasStandaloneVideoFallback = videoFormats.some(isVideoOnly);
+  const includeVideo =
+    !requestedIncludeVideo && requestedIncludeAudio && selectedVideoFormat && hasAudio(selectedVideoFormat) && !hasStandaloneAudioFallback
+      ? true
+      : requestedIncludeVideo;
+  const includeAudio = includeVideo && selectedVideoFormat && hasAudio(selectedVideoFormat)
+    ? true
+    : requestedIncludeAudio;
 
+  const effectiveVideoForAudio = includeVideo ? selectedVideoFormat : null;
   const audioMode =
-    selectedVideoFormat && hasAudio(selectedVideoFormat)
+    effectiveVideoForAudio && hasAudio(effectiveVideoForAudio)
       ? "auto"
       : draft.audioFormatId === "auto" || audioFormats.some((format) => format.format_id === draft.audioFormatId)
         ? draft.audioFormatId
@@ -375,24 +384,34 @@ export function coerceExpandedConfig(metadata: MediaMetadata, draft: ExpandedCon
 
   const bestAudio = audioFormats[0] ?? null;
   const resolvedAudio =
-    selectedVideoFormat && hasAudio(selectedVideoFormat)
+    effectiveVideoForAudio && hasAudio(effectiveVideoForAudio)
       ? null
       : audioMode === "auto"
         ? bestAudio
         : audioFormats.find((format) => format.format_id === audioMode) ?? bestAudio;
 
-  const streamProfile = {
-    hasVideo: Boolean(selectedVideoFormat),
-    hasAudio: selectedVideoFormat ? hasAudio(selectedVideoFormat) || Boolean(resolvedAudio) : Boolean(resolvedAudio),
-  };
+  const selectedStreams = getSelectedStreams({
+    includeVideo,
+    includeAudio,
+    selectedVideoFormat,
+    resolvedAudio,
+    videoFormats,
+  });
 
-  const containerOptions = getCompatibleContainers(streamProfile.hasVideo, streamProfile.hasAudio);
-  const container = normalizeContainerChoice(draft.container, containerOptions, streamProfile.hasVideo, streamProfile.hasAudio);
-  const videoCodecOptions = container ? getVideoCodecOptions(container, streamProfile.hasVideo) : [];
-  const audioCodecOptions = container ? getAudioCodecOptions(container, streamProfile.hasAudio) : [];
+  const containerOptions = getCompatibleContainersForSelection(selectedStreams, draft.mode);
+  const container = normalizeContainerChoice(
+    draft.container,
+    containerOptions,
+    selectedStreams.hasVideo,
+    selectedStreams.hasAudio,
+  );
+  const videoCodecOptions = container ? getVideoCodecOptions(container, selectedStreams.hasVideo) : [];
+  const audioCodecOptions = container ? getAudioCodecOptions(container, selectedStreams.hasAudio) : [];
 
   return {
     isExpanded: draft.isExpanded,
+    includeVideo,
+    includeAudio,
     videoFormatId: selectedVideoFormat?.format_id ?? null,
     audioFormatId: audioMode,
     mode: draft.mode,
@@ -410,6 +429,32 @@ export function getCompatibleContainers(hasVideoStream: boolean, hasAudioStream:
     }
     return true;
   });
+}
+
+export function getCompatibleContainersForConfig(metadata: MediaMetadata, config: ExpandedConfig) {
+  const normalized = coerceExpandedConfig(metadata, config);
+  const resolved = resolveExpandedStreams(metadata, normalized);
+  return getCompatibleContainersForResolvedStreams(resolved, normalized.mode);
+}
+
+export function splitCompatibleContainers(containers: string[]) {
+  const audioOnly: string[] = [];
+  const videoCapable: string[] = [];
+
+  for (const container of containers) {
+    if (!isKnownContainer(container)) {
+      continue;
+    }
+
+    if (CONTAINER_CODEC_RULES[container].video.length === 0) {
+      audioOnly.push(container);
+      continue;
+    }
+
+    videoCapable.push(container);
+  }
+
+  return { audioOnly, videoCapable };
 }
 
 export function getVideoCodecOptions(container: string, hasVideoStream: boolean) {
@@ -459,7 +504,21 @@ export function buildExpandedDownloadRequest(
     options.container = normalized.container;
   }
 
+  if (normalized.mode === "remux") {
+    validateContainerCodecSelection(
+      normalized.container,
+      getResolvedVideoCodec(resolved),
+      getResolvedAudioCodec(resolved),
+    );
+  }
+
   if (normalized.mode === "convert") {
+    validateContainerCodecSelection(
+      normalized.container,
+      resolved.hasVideo ? normalized.vcodec : null,
+      resolved.hasAudio ? normalized.acodec : null,
+    );
+
     if (resolved.hasVideo && normalized.vcodec) {
       options.vcodec = normalized.vcodec;
     }
@@ -522,6 +581,29 @@ export function resolveExpandedStreams(metadata: MediaMetadata, config: Expanded
   const videoFormat =
     videoFormats.find((format) => format.format_id === normalized.videoFormatId) ?? videoFormats[0] ?? null;
 
+  if (!normalized.includeVideo && !normalized.includeAudio) {
+    throw new Error("Select at least one source stream.");
+  }
+
+  if (!normalized.includeVideo) {
+    const audioFormat =
+      normalized.audioFormatId === "auto"
+        ? audioFormats[0] ?? null
+        : audioFormats.find((format) => format.format_id === normalized.audioFormatId) ?? audioFormats[0] ?? null;
+
+    if (!audioFormat) {
+      throw new Error("No downloadable audio stream is available.");
+    }
+
+    return {
+      formatId: audioFormat.format_id,
+      videoFormat: null,
+      audioFormat,
+      hasVideo: false,
+      hasAudio: true,
+    };
+  }
+
   if (!videoFormat) {
     const audioFormat =
       normalized.audioFormatId === "auto"
@@ -538,6 +620,24 @@ export function resolveExpandedStreams(metadata: MediaMetadata, config: Expanded
       audioFormat,
       hasVideo: false,
       hasAudio: true,
+    };
+  }
+
+  if (!normalized.includeAudio) {
+    const standaloneVideo = isVideoOnly(videoFormat)
+      ? videoFormat
+      : findBestStandaloneVideoFormat(videoFormats, videoFormat);
+
+    if (!standaloneVideo) {
+      throw new Error("No standalone video stream is available for this media.");
+    }
+
+    return {
+      formatId: standaloneVideo.format_id,
+      videoFormat: standaloneVideo,
+      audioFormat: null,
+      hasVideo: true,
+      hasAudio: false,
     };
   }
 
@@ -566,43 +666,56 @@ export function resolveExpandedStreams(metadata: MediaMetadata, config: Expanded
 }
 
 export function describeSelection(metadata: MediaMetadata, config: ExpandedConfig) {
-  const resolved = resolveExpandedStreams(metadata, config);
-  return describeResolvedStreams(resolved, config.container);
+  const normalized = coerceExpandedConfig(metadata, config);
+  const resolved = resolveExpandedStreams(metadata, normalized);
+  return describeResolvedStreams(resolved, {
+    containerOverride: normalized.container,
+    videoCodecOverride: normalized.mode === "convert" ? normalized.vcodec : null,
+    audioCodecOverride: normalized.mode === "convert" ? normalized.acodec : null,
+  });
 }
 
 export function describeCompactSelection(metadata: MediaMetadata, compactChoiceId: string) {
   return describeResolvedStreams(resolveCompactStreams(metadata, compactChoiceId));
 }
 
-export function describeResolvedStreams(resolved: ResolvedStreams, containerOverride?: string | null) {
+export function describeResolvedStreams(
+  resolved: ResolvedStreams,
+  overrides?: {
+    containerOverride?: string | null;
+    videoCodecOverride?: string | null;
+    audioCodecOverride?: string | null;
+  },
+) {
   const parts: string[] = [];
   const container =
-    containerOverride ??
+    overrides?.containerOverride ??
     resolved.videoFormat?.ext ??
     resolved.audioFormat?.ext ??
     resolved.videoFormat?.container ??
     resolved.audioFormat?.container;
 
+  const videoPart = buildSummaryVideoPart(
+    resolved.videoFormat,
+    overrides?.videoCodecOverride ?? getResolvedVideoCodec(resolved),
+  );
+  const audioPart = buildSummaryAudioPart(
+    resolved,
+    overrides?.audioCodecOverride ?? getResolvedAudioCodec(resolved),
+  );
+  const sizePart = buildSummarySizePart(resolved);
+
+  if (videoPart) {
+    parts.push(videoPart);
+  }
+  if (audioPart) {
+    parts.push(audioPart);
+  }
   if (container) {
     parts.push(container.toUpperCase());
   }
-
-  if (resolved.videoFormat) {
-    parts.push(getQualityLabel(resolved.videoFormat));
-    if (resolved.videoFormat.vcodec && resolved.videoFormat.vcodec !== "none") {
-      parts.push(resolved.videoFormat.vcodec.toUpperCase());
-    }
-  }
-
-  if (resolved.audioFormat) {
-    if (!resolved.videoFormat) {
-      parts.push(describeAudioLine(resolved.audioFormat));
-    }
-    if (resolved.audioFormat.acodec && resolved.audioFormat.acodec !== "none") {
-      parts.push(resolved.audioFormat.acodec.toUpperCase());
-    }
-  } else if (resolved.videoFormat?.acodec && resolved.videoFormat.acodec !== "none") {
-    parts.push(resolved.videoFormat.acodec.toUpperCase());
+  if (sizePart) {
+    parts.push(sizePart);
   }
 
   return parts.join(" | ");
@@ -610,12 +723,11 @@ export function describeResolvedStreams(resolved: ResolvedStreams, containerOver
 
 export function buildVideoFormatLabel(format: MediaFormat) {
   return [
-    format.format_id,
     format.height > 0 && format.width > 0 ? `${format.width}x${format.height}` : getQualityLabel(format),
-    format.ext.toUpperCase(),
-    format.vcodec.toUpperCase(),
-    format.fps > 0 ? `${Math.round(format.fps)} fps` : null,
-    formatBytes(getApproxSize(format)),
+    format.fps > 0 ? `${Math.round(format.fps)} FPS` : null,
+    format.vcodec && format.vcodec !== "none" ? format.vcodec.toUpperCase() : null,
+    formatVideoBitrate(format),
+    getApproxSize(format) > 0 ? formatBytes(getApproxSize(format)) : null,
   ]
     .filter(Boolean)
     .join(" | ");
@@ -623,14 +735,19 @@ export function buildVideoFormatLabel(format: MediaFormat) {
 
 export function buildAudioFormatLabel(format: MediaFormat) {
   return [
-    format.format_id,
-    format.ext.toUpperCase(),
-    format.acodec.toUpperCase(),
-    format.abr > 0 ? `${Math.round(format.abr)} kbps` : null,
-    formatBytes(getApproxSize(format)),
+    formatAudioBitrate(format),
+    format.acodec && format.acodec !== "none" ? format.acodec.toUpperCase() : null,
+    getApproxSize(format) > 0 ? formatBytes(getApproxSize(format)) : null,
   ]
     .filter(Boolean)
     .join(" | ");
+}
+
+export function buildMuxedFormatLabel(format: MediaFormat) {
+  return {
+    videoLine: buildVideoFormatLabel(format),
+    audioLine: buildAudioFormatLabel(format),
+  };
 }
 
 function normalizeContainerChoice(
@@ -689,6 +806,17 @@ function compareCompactVideoFormats(left: MediaFormat, right: MediaFormat) {
   }
 
   return getApproxSize(right) - getApproxSize(left);
+}
+
+function compareSourceVideoFormats(left: MediaFormat, right: MediaFormat) {
+  const leftRank = isVideoOnly(left) ? 0 : isMuxed(left) ? 1 : 2;
+  const rightRank = isVideoOnly(right) ? 0 : isMuxed(right) ? 1 : 2;
+
+  if (leftRank !== rightRank) {
+    return leftRank - rightRank;
+  }
+
+  return compareCompactVideoFormats(left, right);
 }
 
 function compareAudioFormats(left: MediaFormat, right: MediaFormat) {
@@ -756,6 +884,334 @@ function describeAudioLine(format: MediaFormat) {
   return parts.join(" | ");
 }
 
+function formatVideoBitrate(format: MediaFormat) {
+  if (format.vbr > 0) {
+    return `${Math.round(format.vbr)} kbps`;
+  }
+
+  if (format.abr > 0) {
+    return `${Math.round(format.abr)} kbps`;
+  }
+
+  return null;
+}
+
+function formatAudioBitrate(format: MediaFormat) {
+  if (format.abr > 0) {
+    return `${Math.round(format.abr)} kbps`;
+  }
+
+  return null;
+}
+
+function findBestStandaloneVideoFormat(formats: MediaFormat[], preferred: MediaFormat) {
+  const candidates = formats.filter(isVideoOnly);
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  const exactHeight = candidates.find((format) => format.height > 0 && format.height === preferred.height);
+  if (exactHeight) {
+    return exactHeight;
+  }
+
+  const exactResolution = candidates.find(
+    (format) =>
+      format.width > 0 &&
+      format.height > 0 &&
+      format.width === preferred.width &&
+      format.height === preferred.height,
+  );
+  if (exactResolution) {
+    return exactResolution;
+  }
+
+  return candidates[0];
+}
+
 function isKnownContainer(value: string): value is ContainerName {
   return value in CONTAINER_CODEC_RULES;
+}
+
+function getSelectedStreams({
+  includeVideo,
+  includeAudio,
+  selectedVideoFormat,
+  resolvedAudio,
+  videoFormats,
+}: {
+  includeVideo: boolean;
+  includeAudio: boolean;
+  selectedVideoFormat: MediaFormat | null;
+  resolvedAudio: MediaFormat | null;
+  videoFormats: MediaFormat[];
+}): SelectedStreams {
+  if (!includeVideo && !includeAudio) {
+    return {
+      videoFormat: null,
+      audioFormat: null,
+      hasVideo: false,
+      hasAudio: false,
+    };
+  }
+
+  if (!includeVideo) {
+    return {
+      videoFormat: null,
+      audioFormat: includeAudio ? resolvedAudio : null,
+      hasVideo: false,
+      hasAudio: includeAudio && Boolean(resolvedAudio),
+    };
+  }
+
+  if (!selectedVideoFormat) {
+    return {
+      videoFormat: null,
+      audioFormat: includeAudio ? resolvedAudio : null,
+      hasVideo: false,
+      hasAudio: includeAudio && Boolean(resolvedAudio),
+    };
+  }
+
+  if (!includeAudio) {
+    const standaloneVideo = isVideoOnly(selectedVideoFormat)
+      ? selectedVideoFormat
+      : findBestStandaloneVideoFormat(videoFormats, selectedVideoFormat);
+
+    return {
+      videoFormat: standaloneVideo,
+      audioFormat: null,
+      hasVideo: Boolean(standaloneVideo),
+      hasAudio: false,
+    };
+  }
+
+  if (hasAudio(selectedVideoFormat)) {
+    return {
+      videoFormat: selectedVideoFormat,
+      audioFormat: null,
+      hasVideo: true,
+      hasAudio: true,
+    };
+  }
+
+  return {
+    videoFormat: selectedVideoFormat,
+    audioFormat: resolvedAudio,
+    hasVideo: true,
+    hasAudio: Boolean(resolvedAudio),
+  };
+}
+
+function getCompatibleContainersForSelection(selected: SelectedStreams, mode: ExpandedMode) {
+  return (Object.keys(CONTAINER_CODEC_RULES) as ContainerName[]).filter((container) => {
+    const rule = CONTAINER_CODEC_RULES[container];
+
+    if (selected.hasVideo && rule.video.length === 0) {
+      return false;
+    }
+
+    if (mode !== "remux") {
+      return selected.hasVideo || selected.hasAudio;
+    }
+
+    const videoCodec = getFormatVideoCodec(selected.videoFormat);
+    const audioCodec = getSelectedAudioCodec(selected);
+
+    if (videoCodec && !rule.video.some((codec) => codec === videoCodec)) {
+      return false;
+    }
+
+    if (audioCodec && !rule.audio.some((codec) => codec === audioCodec)) {
+      return false;
+    }
+
+    return selected.hasVideo || selected.hasAudio;
+  });
+}
+
+function getCompatibleContainersForResolvedStreams(resolved: ResolvedStreams, mode: ExpandedMode) {
+  return getCompatibleContainersForSelection(
+    {
+      videoFormat: resolved.videoFormat,
+      audioFormat: resolved.audioFormat,
+      hasVideo: resolved.hasVideo,
+      hasAudio: resolved.hasAudio,
+    },
+    mode,
+  );
+}
+
+function getFormatVideoCodec(format: MediaFormat | null) {
+  if (!format || !hasVideo(format)) {
+    return null;
+  }
+
+  return normalizeFormatVideoCodec(format.vcodec);
+}
+
+function getFormatAudioCodec(format: MediaFormat | null) {
+  if (!format || !hasAudio(format)) {
+    return null;
+  }
+
+  return normalizeFormatAudioCodec(format.acodec);
+}
+
+function getSelectedAudioCodec(selected: SelectedStreams) {
+  return getFormatAudioCodec(selected.audioFormat) ?? getFormatAudioCodec(selected.videoFormat);
+}
+
+function getResolvedVideoCodec(resolved: ResolvedStreams) {
+  return getFormatVideoCodec(resolved.videoFormat);
+}
+
+function getResolvedAudioCodec(resolved: ResolvedStreams) {
+  return getFormatAudioCodec(resolved.audioFormat) ?? getFormatAudioCodec(resolved.videoFormat);
+}
+
+function validateContainerCodecSelection(
+  container: string | null,
+  vcodec: string | null,
+  acodec: string | null,
+) {
+  const normalizedContainer = normalizeContainerValue(container);
+  const normalizedVCodec = normalizeCodecValue(vcodec);
+  const normalizedACodec = normalizeCodecValue(acodec);
+
+  if (!normalizedContainer && !normalizedVCodec && !normalizedACodec) {
+    return;
+  }
+
+  if (!normalizedContainer) {
+    throw new Error("Container is required for codec selection.");
+  }
+
+  if (!isKnownContainer(normalizedContainer)) {
+    throw new Error(`Unsupported container: ${normalizedContainer}`);
+  }
+
+  const rule = CONTAINER_CODEC_RULES[normalizedContainer];
+
+  if (normalizedVCodec && !rule.video.some((codec) => codec === normalizedVCodec)) {
+    throw new Error(`Container ${normalizedContainer.toUpperCase()} does not support video codec ${normalizedVCodec.toUpperCase()}.`);
+  }
+
+  if (normalizedACodec && !rule.audio.some((codec) => codec === normalizedACodec)) {
+    throw new Error(`Container ${normalizedContainer.toUpperCase()} does not support audio codec ${normalizedACodec.toUpperCase()}.`);
+  }
+}
+
+function normalizeContainerValue(container: string | null) {
+  const normalized = container?.trim().toLowerCase() ?? "";
+  return normalized || null;
+}
+
+function normalizeCodecValue(codec: string | null) {
+  const normalized = codec?.trim().toLowerCase() ?? "";
+  if (!normalized || normalized === "none") {
+    return null;
+  }
+  return normalized;
+}
+
+function buildSummaryVideoPart(format: MediaFormat | null, codec: string | null) {
+  if (!format || !hasVideo(format)) {
+    return null;
+  }
+
+  return [getQualityLabel(format), codec?.toUpperCase() ?? null].filter(Boolean).join(" ");
+}
+
+function buildSummaryAudioPart(resolved: ResolvedStreams, codec: string | null) {
+  const audioSource = resolved.audioFormat ?? (resolved.videoFormat && hasAudio(resolved.videoFormat) ? resolved.videoFormat : null);
+  if (!audioSource || !resolved.hasAudio) {
+    return null;
+  }
+
+  return [
+    formatAudioBitrate(audioSource),
+    codec?.toUpperCase() ?? null,
+  ].filter(Boolean).join(" ");
+}
+
+function buildSummarySizePart(resolved: ResolvedStreams) {
+  const totalSize = getResolvedTotalSize(resolved);
+  if (totalSize <= 0) {
+    return null;
+  }
+
+  return formatBytes(totalSize);
+}
+
+function getResolvedTotalSize(resolved: ResolvedStreams) {
+  if (resolved.videoFormat && resolved.audioFormat) {
+    return getApproxSize(resolved.videoFormat) + getApproxSize(resolved.audioFormat);
+  }
+
+  if (resolved.videoFormat) {
+    return getApproxSize(resolved.videoFormat);
+  }
+
+  if (resolved.audioFormat) {
+    return getApproxSize(resolved.audioFormat);
+  }
+
+  return 0;
+}
+
+function normalizeFormatVideoCodec(codec: string) {
+  const normalized = normalizeCodecValue(codec);
+  if (!normalized) {
+    return null;
+  }
+
+  if (normalized.startsWith("av01")) {
+    return "av1";
+  }
+  if (normalized.startsWith("avc1") || normalized.startsWith("avc3") || normalized === "h264") {
+    return "h264";
+  }
+  if (normalized.startsWith("hev1") || normalized.startsWith("hvc1") || normalized === "hevc") {
+    return "hevc";
+  }
+  if (normalized.startsWith("vp09") || normalized === "vp9") {
+    return "vp9";
+  }
+  if (normalized.startsWith("vp08") || normalized === "vp8") {
+    return "vp8";
+  }
+
+  return normalized;
+}
+
+function normalizeFormatAudioCodec(codec: string) {
+  const normalized = normalizeCodecValue(codec);
+  if (!normalized) {
+    return null;
+  }
+
+  if (normalized.startsWith("mp4a") || normalized === "aac") {
+    return "aac";
+  }
+  if (normalized === "alac") {
+    return "alac";
+  }
+  if (normalized === "flac") {
+    return "flac";
+  }
+  if (normalized === "mp3") {
+    return "mp3";
+  }
+  if (normalized === "opus") {
+    return "opus";
+  }
+  if (normalized === "vorbis") {
+    return "vorbis";
+  }
+  if (normalized === "pcm_s16le" || normalized === "pcm_s24le" || normalized === "pcm_f32le") {
+    return normalized;
+  }
+
+  return normalized;
 }

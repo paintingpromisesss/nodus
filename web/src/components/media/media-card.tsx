@@ -1,5 +1,4 @@
-import { ChevronDown, ChevronUp, Download, Sparkles } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Check, ChevronDown, ChevronUp, Download, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -8,14 +7,17 @@ import {
   SelectGroup,
   SelectItem,
   SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { PlatformIcon, resolvePlatform } from "@/lib/platforms";
 import { cn } from "@/lib/utils";
 import {
   buildAudioFormatLabel,
+  buildMuxedFormatLabel,
   buildVideoFormatLabel,
   coerceExpandedConfig,
   describeCompactSelection,
@@ -26,13 +28,14 @@ import {
   getAudioCodecOptions,
   getAudioOnlyFormats,
   getCompactChoices,
-  getCompatibleContainers,
-  getDomainFromUrl,
+  getCompatibleContainersForConfig,
   getMediaBadgeLabel,
-  getPlatformLabel,
   getVideoCodecOptions,
   getVideoFormats,
   hasAudio,
+  isMuxed,
+  isVideoOnly,
+  splitCompatibleContainers,
   type ExpandedConfig,
   type ExpandedMode,
   type SuccessMediaCard,
@@ -58,12 +61,24 @@ export function MediaCard({
   const compactChoice = compactChoices.find((choice) => choice.id === card.compactChoiceId) ?? compactChoices[0] ?? null;
   const normalizedConfig = coerceExpandedConfig(metadata, card.config);
   const videoFormats = getVideoFormats(metadata);
+  const videoOnlyFormats = videoFormats.filter(isVideoOnly);
+  const muxedVideoFormats = videoFormats.filter(isMuxed);
   const audioFormats = getAudioOnlyFormats(metadata);
   const activeVideo = videoFormats.find((format) => format.format_id === normalizedConfig.videoFormatId) ?? videoFormats[0] ?? null;
   const allowsManualAudio = Boolean(activeVideo ? !hasAudio(activeVideo) : true);
-  const hasVideoStream = Boolean(activeVideo);
-  const hasAudioStream = activeVideo ? hasAudio(activeVideo) || audioFormats.length > 0 : audioFormats.length > 0;
-  const containerOptions = getCompatibleContainers(hasVideoStream, hasAudioStream);
+  const isVideoToggleLocked = Boolean(
+    normalizedConfig.includeAudio && activeVideo && hasAudio(activeVideo) && audioFormats.length === 0,
+  );
+  const isAudioToggleLocked = Boolean(
+    normalizedConfig.includeVideo && activeVideo && hasAudio(activeVideo),
+  );
+  const hasSelectedSources = normalizedConfig.includeVideo || normalizedConfig.includeAudio;
+  const hasVideoStream = normalizedConfig.includeVideo && Boolean(activeVideo);
+  const hasAudioStream = normalizedConfig.includeAudio
+    && (hasVideoStream ? hasAudio(activeVideo!) || audioFormats.length > 0 : audioFormats.length > 0);
+  const containerOptions = hasSelectedSources ? getCompatibleContainersForConfig(metadata, normalizedConfig) : [];
+  const { audioOnly: audioOnlyContainers, videoCapable: videoCapableContainers } =
+    splitCompatibleContainers(containerOptions);
   const videoCodecOptions = normalizedConfig.container
     ? getVideoCodecOptions(normalizedConfig.container, hasVideoStream)
     : [];
@@ -72,33 +87,53 @@ export function MediaCard({
     : [];
   const hasDownloads = compactChoices.length > 0;
   const compactSummary = compactChoice ? describeCompactSelection(metadata, compactChoice.id) : "No format options";
-  const expandedSummary = hasDownloads ? describeSelection(metadata, normalizedConfig) : "No format options";
+  const canChooseContainer =
+    hasSelectedSources && normalizedConfig.mode !== "original" && containerOptions.length > 0;
+  const canChooseVideoCodec =
+    normalizedConfig.includeVideo && normalizedConfig.mode === "convert" && videoCodecOptions.length > 0;
+  const canChooseAudioCodec =
+    normalizedConfig.includeAudio && normalizedConfig.mode === "convert" && audioCodecOptions.length > 0;
+  const expandedSummary = hasDownloads
+    ? hasSelectedSources
+      ? describeSelection(metadata, normalizedConfig)
+      : "Select at least one source"
+    : "No format options";
   const isQuickQualityDisabled = normalizedConfig.isExpanded || !hasDownloads || card.download.status === "pending";
   const activeDownloadSummary = normalizedConfig.isExpanded ? expandedSummary : compactSummary;
   const mediaBadge = getMediaBadgeLabel(metadata);
-  const platform = getPlatformLabel(card.url);
+  const sourceUrl = metadata.original_url || card.url;
+  const platform = resolvePlatform(sourceUrl);
   const thumbnail = metadata.thumbnail || "";
+  const approxSize = getApproxSize(activeVideo ?? audioFormats[0] ?? metadata.formats[0]);
+
+  const isExpandedDownloadDisabled = !hasDownloads || card.download.status === "pending" || !hasSelectedSources;
 
   return (
-    <Card className="nodus-surface overflow-hidden animate-fade-up">
-      <div className="grid gap-5 p-5 lg:grid-cols-[13.75rem,minmax(0,1fr)]">
-        <div className="relative">
+    <Card className="nodus-surface relative overflow-hidden animate-fade-up">
+      <a
+        href={sourceUrl}
+        target="_blank"
+        rel="noreferrer"
+        aria-label={`Open original source: ${platform.label}`}
+        className="absolute right-5 top-5 z-10 flex size-11 items-center justify-center rounded-2xl border border-[color:var(--line)] bg-black/30 text-foreground/80 backdrop-blur transition-colors duration-200 hover:border-[color:var(--line-strong)] hover:bg-black/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background lg:right-6 lg:top-6"
+      >
+        <PlatformIcon platform={platform} />
+      </a>
+
+      <div className="grid gap-6 p-5 lg:grid-cols-[15rem,minmax(0,1fr)] lg:p-6">
+        <div className="relative lg:self-start">
           {thumbnail ? (
             <img
               src={thumbnail}
               alt={`${metadata.title} thumbnail`}
-              className="aspect-video w-full rounded-[1.2rem] border border-white/8 object-cover"
+              className="aspect-[1.16] w-full rounded-[1.35rem] border border-white/8 object-cover shadow-soft-glow"
               loading="lazy"
             />
           ) : (
-            <div className="flex aspect-video items-center justify-center rounded-[1.2rem] border border-white/8 bg-white/[0.04] text-sm text-muted-foreground">
+            <div className="flex aspect-[1.16] items-center justify-center rounded-[1.35rem] border border-white/8 bg-white/[0.04] text-sm text-muted-foreground">
               Preview unavailable
             </div>
           )}
-
-          <div className="absolute right-3 top-3 inline-flex items-center gap-2 rounded-full border border-white/8 bg-black/60 px-3 py-1 text-[0.7rem] uppercase tracking-[0.18em] text-[color:var(--accent-2)] shadow-lg backdrop-blur">
-            {platform}
-          </div>
         </div>
 
         <div className="grid min-w-0 gap-4">
@@ -109,30 +144,28 @@ export function MediaCard({
               </h3>
 
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-muted-foreground">
-                <span className="truncate">{getDomainFromUrl(card.url)}</span>
-                <span className="nodus-dot" />
                 <span>{formatDuration(metadata.duration)}</span>
-                {getApproxSize(activeVideo ?? audioFormats[0] ?? metadata.formats[0]) > 0 ? (
+                <span className="nodus-dot" />
+                <span>{mediaBadge}</span>
+                {approxSize > 0 ? (
                   <>
                     <span className="nodus-dot" />
-                    <span>{formatBytes(getApproxSize(activeVideo ?? audioFormats[0] ?? metadata.formats[0]))}</span>
+                    <span>{formatBytes(approxSize)}</span>
                   </>
                 ) : null}
               </div>
-            </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="outline">{mediaBadge}</Badge>
-              <Badge>{platform}</Badge>
+              <div className="rounded-full border border-[color:var(--line)] bg-black/20 px-3 py-1 text-[0.7rem] uppercase tracking-[0.2em] text-muted-foreground w-fit">
+                {metadata.formats.length} formats returned
+              </div>
             </div>
           </div>
-
         </div>
       </div>
 
       <Separator className="bg-white/[0.05]" />
 
-      <div className="grid gap-3 p-5 lg:grid-cols-[3.25rem,13rem,minmax(0,1fr),auto] lg:items-center">
+      <div className="grid gap-3 p-5 lg:grid-cols-[3.25rem,15rem,minmax(0,1fr),auto] lg:items-center lg:p-6">
         <Button
           variant="secondary"
           size="icon"
@@ -175,7 +208,7 @@ export function MediaCard({
         </div>
 
         <div className="flex items-center justify-end gap-3">
-          <div className="hidden min-w-0 max-w-[22rem] items-center gap-2 truncate text-sm text-foreground/90 lg:flex">
+          <div className="hidden min-w-0 max-w-[24rem] items-center gap-2 truncate rounded-full border border-[color:var(--line)] bg-black/20 px-3 py-2 text-sm text-foreground/90 lg:flex">
             <Sparkles className="size-4 shrink-0 text-[color:var(--accent)]" />
             <span className="truncate">{activeDownloadSummary}</span>
           </div>
@@ -183,7 +216,7 @@ export function MediaCard({
           <Button
             className="h-12 px-6"
             onClick={normalizedConfig.isExpanded ? onExpandedDownload : onCompactDownload}
-            disabled={!hasDownloads || card.download.status === "pending"}
+            disabled={normalizedConfig.isExpanded ? isExpandedDownloadDisabled : !hasDownloads || card.download.status === "pending"}
           >
             <Download className="size-4" />
             {card.download.status === "pending" ? "Downloading..." : "Download"}
@@ -208,7 +241,12 @@ export function MediaCard({
             )}
           >
             <div className="grid gap-4 xl:grid-cols-2">
-              <section className="rounded-[1.4rem] border border-white/[0.06] bg-white/[0.03] p-5 shadow-insetLine">
+              <section
+                className={cn(
+                  "rounded-[1.55rem] border border-white/[0.06] bg-white/[0.03] p-5 shadow-insetLine transition-opacity",
+                  !hasSelectedSources && "opacity-55",
+                )}
+              >
                 <div className="grid gap-4">
                   <div>
                     <h4 className="font-display text-3xl tracking-[-0.03em] text-foreground">Input</h4>
@@ -218,8 +256,38 @@ export function MediaCard({
                   </div>
 
                   {videoFormats.length > 0 ? (
-                    <div className="grid gap-2">
-                      <label className="text-sm font-medium text-muted-foreground">Source video</label>
+                    <div className={cn("grid gap-2 transition-opacity", !normalizedConfig.includeVideo && "opacity-60")}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isVideoToggleLocked) {
+                          return;
+                        }
+
+                        onConfigChange((current) => ({
+                          ...current,
+                          includeVideo: !current.includeVideo,
+                        }));
+                      }}
+                      disabled={isVideoToggleLocked}
+                      className={cn(
+                        "inline-flex w-fit items-center gap-2 text-sm font-medium text-muted-foreground transition-colors",
+                        isVideoToggleLocked ? "cursor-not-allowed opacity-70" : "hover:text-foreground",
+                      )}
+                      aria-pressed={normalizedConfig.includeVideo}
+                    >
+                        <span
+                          className={cn(
+                            "flex size-5 items-center justify-center rounded-full border transition-all",
+                            normalizedConfig.includeVideo
+                              ? "border-[color:var(--line-strong)] bg-[rgba(223,192,143,0.14)] text-[color:var(--accent-2)]"
+                              : "border-[color:var(--line)] bg-black/20 text-transparent",
+                          )}
+                        >
+                          <Check className="size-3" />
+                        </span>
+                        Source video
+                      </button>
                       <Select
                         value={normalizedConfig.videoFormatId ?? undefined}
                         onValueChange={(value) =>
@@ -230,19 +298,40 @@ export function MediaCard({
                             }),
                           )
                         }
+                        disabled={!normalizedConfig.includeVideo}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Choose video format" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectGroup>
-                            <SelectLabel>Video-bearing formats</SelectLabel>
-                            {videoFormats.map((format) => (
-                              <SelectItem key={format.format_id} value={format.format_id}>
-                                {buildVideoFormatLabel(format)}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
+                          {videoOnlyFormats.length > 0 ? (
+                            <SelectGroup>
+                              <SelectLabel>Video formats</SelectLabel>
+                              {videoOnlyFormats.map((format) => (
+                                <SelectItem key={format.format_id} value={format.format_id}>
+                                  {buildVideoFormatLabel(format)}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                          ) : null}
+
+                          {videoOnlyFormats.length > 0 && muxedVideoFormats.length > 0 ? <SelectSeparator /> : null}
+
+                          {muxedVideoFormats.length > 0 ? (
+                            <SelectGroup>
+                              <SelectLabel>Muxed formats</SelectLabel>
+                              {muxedVideoFormats.map((format) => (
+                                <SelectItem key={format.format_id} value={format.format_id}>
+                                  <div className="grid w-full gap-1 text-left">
+                                    <span className="block text-left">{buildMuxedFormatLabel(format).videoLine}</span>
+                                    <span className="block text-left text-xs text-muted-foreground">
+                                      {buildMuxedFormatLabel(format).audioLine}
+                                    </span>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                          ) : null}
                         </SelectContent>
                       </Select>
                     </div>
@@ -252,8 +341,38 @@ export function MediaCard({
                     </div>
                   )}
 
-                  <div className="grid gap-2">
-                    <label className="text-sm font-medium text-muted-foreground">Source audio</label>
+                  <div className={cn("grid gap-2 transition-opacity", !normalizedConfig.includeAudio && "opacity-60")}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isAudioToggleLocked) {
+                          return;
+                        }
+
+                        onConfigChange((current) => ({
+                          ...current,
+                          includeAudio: !current.includeAudio,
+                        }));
+                      }}
+                      disabled={isAudioToggleLocked}
+                      className={cn(
+                        "inline-flex w-fit items-center gap-2 text-sm font-medium text-muted-foreground transition-colors",
+                        isAudioToggleLocked ? "cursor-not-allowed opacity-70" : "hover:text-foreground",
+                      )}
+                      aria-pressed={normalizedConfig.includeAudio}
+                    >
+                      <span
+                        className={cn(
+                          "flex size-5 items-center justify-center rounded-full border transition-all",
+                          normalizedConfig.includeAudio
+                            ? "border-[color:var(--line-strong)] bg-[rgba(223,192,143,0.14)] text-[color:var(--accent-2)]"
+                            : "border-[color:var(--line)] bg-black/20 text-transparent",
+                        )}
+                      >
+                        <Check className="size-3" />
+                      </span>
+                      Source audio
+                    </button>
                     <Select
                       value={normalizedConfig.audioFormatId === "auto" ? "auto" : normalizedConfig.audioFormatId}
                       onValueChange={(value) =>
@@ -264,7 +383,7 @@ export function MediaCard({
                           }),
                         )
                       }
-                      disabled={!allowsManualAudio || audioFormats.length === 0}
+                      disabled={!normalizedConfig.includeAudio || !allowsManualAudio || audioFormats.length === 0}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Choose audio stream" />
@@ -292,7 +411,12 @@ export function MediaCard({
                 </div>
               </section>
 
-              <section className="rounded-[1.4rem] border border-white/[0.06] bg-white/[0.03] p-5 shadow-insetLine">
+              <section
+                className={cn(
+                  "rounded-[1.55rem] border border-white/[0.06] bg-white/[0.03] p-5 shadow-insetLine transition-opacity",
+                  !hasSelectedSources && "opacity-55",
+                )}
+              >
                 <div className="grid gap-4">
                   <div>
                     <h4 className="font-display text-3xl tracking-[-0.03em] text-foreground">Output</h4>
@@ -342,26 +466,43 @@ export function MediaCard({
                           }),
                         )
                       }
-                      disabled={normalizedConfig.mode === "original" || containerOptions.length === 0}
+                      disabled={!canChooseContainer}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Choose container" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectGroup>
-                          <SelectLabel>Compatible containers</SelectLabel>
-                          {containerOptions.map((container) => (
-                            <SelectItem key={container} value={container}>
-                              {container.toUpperCase()}
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
+                        {audioOnlyContainers.length > 0 ? (
+                          <SelectGroup>
+                            <SelectLabel>Audio containers</SelectLabel>
+                            {audioOnlyContainers.map((container) => (
+                              <SelectItem key={container} value={container}>
+                                {container.toUpperCase()}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        ) : null}
+
+                        {audioOnlyContainers.length > 0 && videoCapableContainers.length > 0 ? <SelectSeparator /> : null}
+
+                        {videoCapableContainers.length > 0 ? (
+                          <SelectGroup>
+                            <SelectLabel>
+                              {audioOnlyContainers.length > 0 ? "Video containers" : "Compatible containers"}
+                            </SelectLabel>
+                            {videoCapableContainers.map((container) => (
+                              <SelectItem key={container} value={container}>
+                                {container.toUpperCase()}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        ) : null}
                       </SelectContent>
                     </Select>
                   </div>
 
                   <div className="grid gap-2 md:grid-cols-2">
-                    <div className="grid gap-2">
+                    <div className={cn("grid gap-2 transition-opacity", !normalizedConfig.includeVideo && "opacity-60")}>
                       <label className="text-sm font-medium text-muted-foreground">Target video codec</label>
                       <Select
                         value={normalizedConfig.vcodec ?? undefined}
@@ -369,11 +510,11 @@ export function MediaCard({
                           onConfigChange((current) =>
                             coerceExpandedConfig(metadata, {
                               ...current,
-                              vcodec: value,
-                            }),
-                          )
-                        }
-                        disabled={normalizedConfig.mode !== "convert" || videoCodecOptions.length === 0}
+                            vcodec: value,
+                          }),
+                        )
+                      }
+                      disabled={!canChooseVideoCodec}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="No video stream" />
@@ -391,7 +532,7 @@ export function MediaCard({
                       </Select>
                     </div>
 
-                    <div className="grid gap-2">
+                    <div className={cn("grid gap-2 transition-opacity", !normalizedConfig.includeAudio && "opacity-60")}>
                       <label className="text-sm font-medium text-muted-foreground">Target audio codec</label>
                       <Select
                         value={normalizedConfig.acodec ?? undefined}
@@ -399,11 +540,11 @@ export function MediaCard({
                           onConfigChange((current) =>
                             coerceExpandedConfig(metadata, {
                               ...current,
-                              acodec: value,
-                            }),
-                          )
-                        }
-                        disabled={normalizedConfig.mode !== "convert" || audioCodecOptions.length === 0}
+                            acodec: value,
+                          }),
+                        )
+                      }
+                      disabled={!canChooseAudioCodec}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="No audio stream" />

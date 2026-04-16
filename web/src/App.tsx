@@ -102,6 +102,7 @@ export default function App() {
       : "Backend offline";
 
   const pendingCount = cards.filter((card) => card.state === "pending").length;
+  const successfulCount = cards.filter((card) => card.state === "success").length;
 
   function replaceCardWithSuccess(index: number, url: string, metadata: MediaMetadata) {
     setCards((current) =>
@@ -242,7 +243,17 @@ export default function App() {
       <div className="mx-auto flex w-full max-w-[1120px] flex-col gap-6 px-4 py-8 md:px-6 md:py-10">
         <section className="nodus-surface px-5 py-6 md:px-8 md:py-8">
           <div className="mx-auto flex max-w-4xl flex-col gap-6">
-            <div className="flex justify-center">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="space-y-2">
+                <p className="section-kicker">Nodus media</p>
+                <h1 className="hero-title text-balance text-4xl sm:text-5xl md:text-6xl lg:text-[4.5rem]">
+                  Fetch metadata from media links
+                </h1>
+                <p className="max-w-2xl text-pretty text-base leading-7 text-muted-foreground md:text-lg">
+                  Paste one URL per line, wait for cards to resolve, then download quickly or open detailed format options.
+                </p>
+              </div>
+
               <Badge variant="outline" className="gap-2 px-4 py-2 text-[0.7rem]">
                 <span
                   className={[
@@ -252,15 +263,6 @@ export default function App() {
                 />
                 {healthLabel}
               </Badge>
-            </div>
-
-            <div className="space-y-4 text-center">
-              <p className="section-kicker">Nodus media workstation</p>
-              <h1 className="hero-title text-balance">Paste links to fetch metadata</h1>
-              <p className="mx-auto max-w-2xl text-pretty text-base leading-7 text-muted-foreground md:text-lg">
-                Drop one URL per line, let metadata stream in from the backend, then download fast from the compact card
-                or go deeper with exact formats and ffmpeg conversion.
-              </p>
             </div>
 
             <form className="grid gap-4" onSubmit={handleFetch}>
@@ -274,7 +276,22 @@ export default function App() {
                 className="min-h-[8.5rem] text-base md:text-lg"
               />
 
-              <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                  <Badge variant="outline" className="gap-2">
+                    <Globe2 className="size-3.5" />
+                    {cards.length} total
+                  </Badge>
+                  <Badge variant="outline" className="gap-2">
+                    <LoaderCircle className={pendingCount > 0 ? "size-3.5 animate-spin" : "size-3.5"} />
+                    {pendingCount} pending
+                  </Badge>
+                  <Badge variant="outline" className="gap-2">
+                    <Link2 className="size-3.5" />
+                    {successfulCount} ready
+                  </Badge>
+                </div>
+
                 <Button size="lg" className="min-w-[11rem]" type="submit">
                   {fetchMutation.isPending ? (
                     <>

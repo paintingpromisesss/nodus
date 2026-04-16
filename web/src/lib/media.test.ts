@@ -3,6 +3,9 @@ import {
   buildCompactDownloadRequest,
   buildExpandedDownloadRequest,
   coerceExpandedConfig,
+  describeCompactSelection,
+  describeSelection,
+  getCompatibleContainersForConfig,
   normalizeUrlInput,
   type ExpandedConfig,
   type MediaMetadata,
@@ -149,6 +152,8 @@ describe("download request builders", () => {
   it("builds expanded original payload with auto audio", () => {
     const config: ExpandedConfig = {
       isExpanded: true,
+      includeVideo: true,
+      includeAudio: true,
       videoFormatId: "136",
       audioFormatId: "auto",
       mode: "original",
@@ -167,6 +172,8 @@ describe("download request builders", () => {
   it("builds expanded convert payload with explicit container and codecs", () => {
     const config = coerceExpandedConfig(sampleMetadata, {
       isExpanded: true,
+      includeVideo: true,
+      includeAudio: true,
       videoFormatId: "247",
       audioFormatId: "140",
       mode: "convert",
@@ -185,5 +192,196 @@ describe("download request builders", () => {
         acodec: "opus",
       },
     });
+  });
+
+  it("formats compact summary as video, audio, container, size", () => {
+    expect(describeCompactSelection(sampleMetadata, "video:720p")).toBe(
+      "720p H264 | 160 kbps OPUS | MP4 | 51.4 MB",
+    );
+  });
+
+  it("formats convert summary with target codecs", () => {
+    const config = coerceExpandedConfig(sampleMetadata, {
+      isExpanded: true,
+      includeVideo: true,
+      includeAudio: true,
+      videoFormatId: "247",
+      audioFormatId: "140",
+      mode: "convert",
+      container: "webm",
+      vcodec: "vp9",
+      acodec: "opus",
+    });
+
+    expect(describeSelection(sampleMetadata, config)).toBe(
+      "720p VP9 | 128 kbps OPUS | WEBM | 49.0 MB",
+    );
+  });
+
+  it("filters remux containers by selected source codecs", () => {
+    const config = coerceExpandedConfig(sampleMetadata, {
+      isExpanded: true,
+      includeVideo: false,
+      includeAudio: true,
+      videoFormatId: "136",
+      audioFormatId: "251",
+      mode: "remux",
+      container: "m4a",
+      vcodec: null,
+      acodec: null,
+    });
+
+    expect(getCompatibleContainersForConfig(sampleMetadata, config)).toEqual(
+      expect.arrayContaining(["mp4", "ogg", "opus", "mkv"]),
+    );
+    expect(getCompatibleContainersForConfig(sampleMetadata, config)).not.toContain("m4a");
+    expect(getCompatibleContainersForConfig(sampleMetadata, config)).not.toContain("mp3");
+    expect(getCompatibleContainersForConfig(sampleMetadata, config)).not.toContain("wav");
+  });
+
+  it("normalizes invalid remux containers to a compatible option", () => {
+    const config = coerceExpandedConfig(sampleMetadata, {
+      isExpanded: true,
+      includeVideo: false,
+      includeAudio: true,
+      videoFormatId: "136",
+      audioFormatId: "251",
+      mode: "remux",
+      container: "mp3",
+      vcodec: null,
+      acodec: null,
+    });
+
+    expect(config.container).not.toBe("mp3");
+    expect(["mp4", "ogg", "opus", "mkv"]).toContain(config.container);
+  });
+
+  it("keeps audio-only remux state valid when a muxed video format exists in background selection", () => {
+    const config = coerceExpandedConfig(sampleMetadata, {
+      isExpanded: true,
+      includeVideo: false,
+      includeAudio: true,
+      videoFormatId: "18",
+      audioFormatId: "140",
+      mode: "remux",
+      container: null,
+      vcodec: null,
+      acodec: null,
+    });
+
+    expect(config.audioFormatId).toBe("140");
+    expect(config.container).toBe("m4a");
+
+    expect(buildExpandedDownloadRequest(sampleMetadata.original_url, sampleMetadata, config)).toEqual({
+      url: sampleMetadata.original_url,
+      format_id: "140",
+      options: {
+        container: "m4a",
+      },
+    });
+  });
+
+  it("accepts raw yt-dlp codec strings when resolving remux containers", () => {
+    const metadataWithRawCodecs: MediaMetadata = {
+      ...sampleMetadata,
+      formats: [
+        {
+          ...sampleMetadata.formats[1],
+          format_id: "401",
+          vcodec: "av01.0.08M.08",
+        },
+        {
+          ...sampleMetadata.formats[3],
+          format_id: "139",
+          acodec: "mp4a.40.2",
+          abr: 48,
+        },
+      ],
+    };
+
+    const config = coerceExpandedConfig(metadataWithRawCodecs, {
+      isExpanded: true,
+      includeVideo: true,
+      includeAudio: true,
+      videoFormatId: "401",
+      audioFormatId: "139",
+      mode: "remux",
+      container: null,
+      vcodec: null,
+      acodec: null,
+    });
+
+    expect(getCompatibleContainersForConfig(metadataWithRawCodecs, config)).toEqual(
+      expect.arrayContaining(["mp4", "mkv"]),
+    );
+    expect(config.container).toBe("mp4");
+  });
+
+  it("keeps source audio enabled when only muxed video formats are available", () => {
+    const muxedOnlyMetadata: MediaMetadata = {
+      ...sampleMetadata,
+      formats: [
+        {
+          ...sampleMetadata.formats[0],
+          format_id: "18",
+        },
+      ],
+    };
+
+    const config = coerceExpandedConfig(muxedOnlyMetadata, {
+      isExpanded: true,
+      includeVideo: true,
+      includeAudio: false,
+      videoFormatId: "18",
+      audioFormatId: "auto",
+      mode: "original",
+      container: null,
+      vcodec: null,
+      acodec: null,
+    });
+
+    expect(config.includeAudio).toBe(true);
+  });
+
+  it("keeps source audio enabled when the selected video format is muxed", () => {
+    const config = coerceExpandedConfig(sampleMetadata, {
+      isExpanded: true,
+      includeVideo: true,
+      includeAudio: false,
+      videoFormatId: "18",
+      audioFormatId: "auto",
+      mode: "original",
+      container: null,
+      vcodec: null,
+      acodec: null,
+    });
+
+    expect(config.includeAudio).toBe(true);
+  });
+
+  it("keeps source video enabled when only muxed formats are available", () => {
+    const muxedOnlyMetadata: MediaMetadata = {
+      ...sampleMetadata,
+      formats: [
+        {
+          ...sampleMetadata.formats[0],
+          format_id: "18",
+        },
+      ],
+    };
+
+    const config = coerceExpandedConfig(muxedOnlyMetadata, {
+      isExpanded: true,
+      includeVideo: false,
+      includeAudio: true,
+      videoFormatId: "18",
+      audioFormatId: "auto",
+      mode: "original",
+      container: null,
+      vcodec: null,
+      acodec: null,
+    });
+
+    expect(config.includeVideo).toBe(true);
   });
 });

@@ -64,6 +64,27 @@ func (c *Client) Download(ctx context.Context, url string, options DownloadOptio
 	}
 
 	if options.Container != nil || options.ACodec != nil || options.VCodec != nil {
+		if options.Container != nil && options.ACodec == nil && options.VCodec == nil {
+			probeResult, err := c.FFmpegClient.ProbeCodecs(ctx, filePath)
+			if err != nil {
+				return nil, err
+			}
+
+			var videoCodec *string
+			if strings.TrimSpace(probeResult.VideoCodec) != "" {
+				videoCodec = &probeResult.VideoCodec
+			}
+
+			var audioCodec *string
+			if strings.TrimSpace(probeResult.AudioCodec) != "" {
+				audioCodec = &probeResult.AudioCodec
+			}
+
+			if err := validateContainerCodecs(options.Container, videoCodec, audioCodec); err != nil {
+				return nil, err
+			}
+		}
+
 		convertOptions := buildConvertOptions(options)
 
 		convertedPath, err := c.FFmpegClient.Convert(ctx, filePath, convertOptions)
