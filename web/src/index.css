@@ -45,6 +45,7 @@
       radial-gradient(circle at top, rgba(214, 176, 122, 0.09), transparent 32%),
       radial-gradient(circle at bottom, rgba(214, 176, 122, 0.05), transparent 30%),
       linear-gradient(180deg, #171513 0%, #0f0e0d 100%);
+    background-attachment: fixed, fixed, fixed;
   }
 
   ::selection {
@@ -54,8 +55,15 @@
 
 @layer components {
   .nodus-surface {
-    background: linear-gradient(180deg, rgba(34, 34, 34, 0.92), rgba(21, 21, 21, 0.96));
+    background-color: rgba(21, 21, 21, 0.96);
+    background-image: linear-gradient(
+      180deg,
+      rgba(34, 34, 34, 0.92) 0px,
+      rgba(29, 29, 28, 0.94) 180px,
+      rgba(21, 21, 21, 0.96) 420px
+    );
     border: 1px solid var(--line);
+    border-radius: 1.625rem;
     box-shadow:
       0 28px 60px rgba(0, 0, 0, 0.32),
       inset 0 1px 0 rgba(255, 255, 255, 0.04);

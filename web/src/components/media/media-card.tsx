@@ -190,7 +190,7 @@ export function MediaCard({
       </div>
 
       {normalizedConfig.isExpanded ? (
-        <div className="border-t border-white/[0.05] bg-[linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0))] p-5">
+        <div className="border-t border-white/[0.05] p-5">
           <div className="grid gap-4 xl:grid-cols-2">
             <section className="rounded-[1.4rem] border border-white/[0.06] bg-white/[0.03] p-5 shadow-insetLine">
               <div className="grid gap-4">
