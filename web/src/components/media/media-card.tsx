@@ -87,6 +87,8 @@ export function MediaCard({
     : [];
   const hasDownloads = compactChoices.length > 0;
   const compactSummary = compactChoice ? describeCompactSelection(metadata, compactChoice.id) : "No format options";
+  const isQuickQualityOverrideEnabled = normalizedConfig.overrideQuickQuality;
+  const isInputSectionDisabled = !isQuickQualityOverrideEnabled;
   const canChooseContainer =
     hasSelectedSources && normalizedConfig.mode !== "original" && containerOptions.length > 0;
   const canChooseVideoCodec =
@@ -98,8 +100,8 @@ export function MediaCard({
       ? describeSelection(metadata, normalizedConfig)
       : "Select at least one source"
     : "No format options";
-  const isQuickQualityDisabled = normalizedConfig.isExpanded || !hasDownloads || card.download.status === "pending";
-  const activeDownloadSummary = normalizedConfig.isExpanded ? expandedSummary : compactSummary;
+  const isQuickQualityDisabled = isQuickQualityOverrideEnabled || !hasDownloads || card.download.status === "pending";
+  const activeDownloadSummary = isQuickQualityOverrideEnabled ? expandedSummary : compactSummary;
   const mediaBadge = getMediaBadgeLabel(metadata);
   const sourceUrl = metadata.original_url || card.url;
   const platform = resolvePlatform(sourceUrl);
@@ -180,12 +182,7 @@ export function MediaCard({
           {normalizedConfig.isExpanded ? <ChevronUp className="size-5" /> : <ChevronDown className="size-5" />}
         </Button>
 
-        <div
-          className={cn(
-            "transition-opacity duration-200",
-            normalizedConfig.isExpanded && "pointer-events-none opacity-45",
-          )}
-        >
+        <div className="transition-opacity duration-200">
           <Select
             value={compactChoice?.id}
             onValueChange={(value) => onCompactChoiceChange(value)}
@@ -215,8 +212,8 @@ export function MediaCard({
 
           <Button
             className="h-12 px-6"
-            onClick={normalizedConfig.isExpanded ? onExpandedDownload : onCompactDownload}
-            disabled={normalizedConfig.isExpanded ? isExpandedDownloadDisabled : !hasDownloads || card.download.status === "pending"}
+            onClick={isQuickQualityOverrideEnabled ? onExpandedDownload : onCompactDownload}
+            disabled={isQuickQualityOverrideEnabled ? isExpandedDownloadDisabled : !hasDownloads || card.download.status === "pending"}
           >
             <Download className="size-4" />
             {card.download.status === "pending" ? "Downloading..." : "Download"}
@@ -247,166 +244,211 @@ export function MediaCard({
                   !hasSelectedSources && "opacity-55",
                 )}
               >
-                <div className="grid gap-4">
-                  <div>
-                    <h4 className="font-display text-3xl tracking-[-0.03em] text-foreground">Input</h4>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Pick the exact streams that will be sent to the backend.
-                    </p>
+                <div className="relative grid gap-4">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onConfigChange((current) => ({
+                        ...current,
+                        overrideQuickQuality: !current.overrideQuickQuality,
+                      }))
+                    }
+                    className={cn(
+                      "absolute right-0 top-0 inline-flex h-8 w-14 shrink-0 items-center rounded-full border p-1 transition-colors",
+                      isQuickQualityOverrideEnabled
+                        ? "border-[color:var(--line-strong)] bg-[rgba(223,192,143,0.12)] text-[color:var(--accent-2)]"
+                        : "border-[color:var(--line)] bg-black/20 text-muted-foreground hover:text-foreground",
+                    )}
+                    aria-pressed={isQuickQualityOverrideEnabled}
+                    aria-label="Toggle quick quality override"
+                    title="Override quick quality"
+                  >
+                    <span
+                      className={cn(
+                        "relative block h-full w-full rounded-full transition-colors",
+                        isQuickQualityOverrideEnabled
+                          ? "bg-[rgba(223,192,143,0.2)]"
+                          : "bg-black/35",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "absolute left-0.5 top-1/2 size-5 -translate-y-1/2 rounded-full bg-current transition-transform",
+                          isQuickQualityOverrideEnabled ? "translate-x-6" : "translate-x-0",
+                        )}
+                      />
+                    </span>
+                  </button>
+
+                  <div className="flex items-start justify-between gap-4 pr-16">
+                    <div>
+                      <h4 className="font-display text-3xl tracking-[-0.03em] text-foreground">Input</h4>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Pick the exact streams that will be sent to the backend.
+                      </p>
+                    </div>
                   </div>
 
-                  {videoFormats.length > 0 ? (
-                    <div className={cn("grid gap-2 transition-opacity", !normalizedConfig.includeVideo && "opacity-60")}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (isVideoToggleLocked) {
-                          return;
-                        }
+                  <div
+                    className={cn(
+                      "grid gap-4 transition-[opacity,filter] duration-200",
+                      isInputSectionDisabled && "pointer-events-none opacity-45 saturate-50",
+                    )}
+                    aria-disabled={isInputSectionDisabled}
+                  >
+                    {videoFormats.length > 0 ? (
+                      <div className={cn("grid gap-2 transition-opacity", !normalizedConfig.includeVideo && "opacity-60")}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (isVideoToggleLocked) {
+                              return;
+                            }
 
-                        onConfigChange((current) => ({
-                          ...current,
-                          includeVideo: !current.includeVideo,
-                        }));
-                      }}
-                      disabled={isVideoToggleLocked}
-                      className={cn(
-                        "inline-flex w-fit items-center gap-2 text-sm font-medium text-muted-foreground transition-colors",
-                        isVideoToggleLocked ? "cursor-not-allowed opacity-70" : "hover:text-foreground",
-                      )}
-                      aria-pressed={normalizedConfig.includeVideo}
-                    >
+                            onConfigChange((current) => ({
+                              ...current,
+                              includeVideo: !current.includeVideo,
+                            }));
+                          }}
+                          disabled={isInputSectionDisabled || isVideoToggleLocked}
+                          className={cn(
+                            "inline-flex w-fit items-center gap-2 text-sm font-medium text-muted-foreground transition-colors",
+                            (isInputSectionDisabled || isVideoToggleLocked) ? "cursor-not-allowed opacity-70" : "hover:text-foreground",
+                          )}
+                          aria-pressed={normalizedConfig.includeVideo}
+                        >
+                          <span
+                            className={cn(
+                              "flex size-5 items-center justify-center rounded-full border transition-all",
+                              normalizedConfig.includeVideo
+                                ? "border-[color:var(--line-strong)] bg-[rgba(223,192,143,0.14)] text-[color:var(--accent-2)]"
+                                : "border-[color:var(--line)] bg-black/20 text-transparent",
+                            )}
+                          >
+                            <Check className="size-3" />
+                          </span>
+                          Source video
+                        </button>
+                        <Select
+                          value={normalizedConfig.videoFormatId ?? undefined}
+                          onValueChange={(value) =>
+                            onConfigChange((current) =>
+                              coerceExpandedConfig(metadata, {
+                                ...current,
+                                videoFormatId: value,
+                              }),
+                            )
+                          }
+                          disabled={isInputSectionDisabled || !normalizedConfig.includeVideo}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Choose video format" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {videoOnlyFormats.length > 0 ? (
+                              <SelectGroup>
+                                <SelectLabel>Video formats</SelectLabel>
+                                {videoOnlyFormats.map((format) => (
+                                  <SelectItem key={format.format_id} value={format.format_id}>
+                                    {buildVideoFormatLabel(format)}
+                                  </SelectItem>
+                                ))}
+                              </SelectGroup>
+                            ) : null}
+
+                            {videoOnlyFormats.length > 0 && muxedVideoFormats.length > 0 ? <SelectSeparator /> : null}
+
+                            {muxedVideoFormats.length > 0 ? (
+                              <SelectGroup>
+                                <SelectLabel>Muxed formats</SelectLabel>
+                                {muxedVideoFormats.map((format) => (
+                                  <SelectItem key={format.format_id} value={format.format_id}>
+                                    <div className="grid w-full gap-1 text-left">
+                                      <span className="block text-left">{buildMuxedFormatLabel(format).videoLine}</span>
+                                      <span className="block text-left text-xs text-muted-foreground">
+                                        {buildMuxedFormatLabel(format).audioLine}
+                                      </span>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectGroup>
+                            ) : null}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ) : (
+                      <div className="rounded-[1rem] border border-[color:var(--line)] bg-black/20 px-4 py-3 text-sm text-muted-foreground">
+                        Backend returned only audio-bearing formats for this URL.
+                      </div>
+                    )}
+
+                    <div className={cn("grid gap-2 transition-opacity", !normalizedConfig.includeAudio && "opacity-60")}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (isAudioToggleLocked) {
+                            return;
+                          }
+
+                          onConfigChange((current) => ({
+                            ...current,
+                            includeAudio: !current.includeAudio,
+                          }));
+                        }}
+                        disabled={isInputSectionDisabled || isAudioToggleLocked}
+                        className={cn(
+                          "inline-flex w-fit items-center gap-2 text-sm font-medium text-muted-foreground transition-colors",
+                          (isInputSectionDisabled || isAudioToggleLocked) ? "cursor-not-allowed opacity-70" : "hover:text-foreground",
+                        )}
+                        aria-pressed={normalizedConfig.includeAudio}
+                      >
                         <span
                           className={cn(
                             "flex size-5 items-center justify-center rounded-full border transition-all",
-                            normalizedConfig.includeVideo
+                            normalizedConfig.includeAudio
                               ? "border-[color:var(--line-strong)] bg-[rgba(223,192,143,0.14)] text-[color:var(--accent-2)]"
                               : "border-[color:var(--line)] bg-black/20 text-transparent",
                           )}
                         >
                           <Check className="size-3" />
                         </span>
-                        Source video
+                        Source audio
                       </button>
                       <Select
-                        value={normalizedConfig.videoFormatId ?? undefined}
+                        value={normalizedConfig.audioFormatId === "auto" ? "auto" : normalizedConfig.audioFormatId}
                         onValueChange={(value) =>
                           onConfigChange((current) =>
                             coerceExpandedConfig(metadata, {
                               ...current,
-                              videoFormatId: value,
+                              audioFormatId: value === "auto" ? "auto" : value,
                             }),
                           )
                         }
-                        disabled={!normalizedConfig.includeVideo}
+                        disabled={isInputSectionDisabled || !normalizedConfig.includeAudio || !allowsManualAudio || audioFormats.length === 0}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Choose video format" />
+                          <SelectValue placeholder="Choose audio stream" />
                         </SelectTrigger>
                         <SelectContent>
-                          {videoOnlyFormats.length > 0 ? (
-                            <SelectGroup>
-                              <SelectLabel>Video formats</SelectLabel>
-                              {videoOnlyFormats.map((format) => (
-                                <SelectItem key={format.format_id} value={format.format_id}>
-                                  {buildVideoFormatLabel(format)}
-                                </SelectItem>
-                              ))}
-                            </SelectGroup>
-                          ) : null}
-
-                          {videoOnlyFormats.length > 0 && muxedVideoFormats.length > 0 ? <SelectSeparator /> : null}
-
-                          {muxedVideoFormats.length > 0 ? (
-                            <SelectGroup>
-                              <SelectLabel>Muxed formats</SelectLabel>
-                              {muxedVideoFormats.map((format) => (
-                                <SelectItem key={format.format_id} value={format.format_id}>
-                                  <div className="grid w-full gap-1 text-left">
-                                    <span className="block text-left">{buildMuxedFormatLabel(format).videoLine}</span>
-                                    <span className="block text-left text-xs text-muted-foreground">
-                                      {buildMuxedFormatLabel(format).audioLine}
-                                    </span>
-                                  </div>
-                                </SelectItem>
-                              ))}
-                            </SelectGroup>
-                          ) : null}
+                          <SelectGroup>
+                            <SelectLabel>Audio-only formats</SelectLabel>
+                            <SelectItem value="auto">Auto | best available audio</SelectItem>
+                            {audioFormats.map((format) => (
+                              <SelectItem key={format.format_id} value={format.format_id}>
+                                {buildAudioFormatLabel(format)}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
                         </SelectContent>
                       </Select>
+                      <p className="text-xs leading-5 text-muted-foreground">
+                        {allowsManualAudio
+                          ? audioFormats.length > 0
+                            ? "If the video stream is separate, Nodus will attach your chosen audio track."
+                            : "No standalone audio streams were returned for this media."
+                          : "The selected video already includes audio, so the separate audio selector is locked."}
+                      </p>
                     </div>
-                  ) : (
-                    <div className="rounded-[1rem] border border-[color:var(--line)] bg-black/20 px-4 py-3 text-sm text-muted-foreground">
-                      Backend returned only audio-bearing formats for this URL.
-                    </div>
-                  )}
-
-                  <div className={cn("grid gap-2 transition-opacity", !normalizedConfig.includeAudio && "opacity-60")}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (isAudioToggleLocked) {
-                          return;
-                        }
-
-                        onConfigChange((current) => ({
-                          ...current,
-                          includeAudio: !current.includeAudio,
-                        }));
-                      }}
-                      disabled={isAudioToggleLocked}
-                      className={cn(
-                        "inline-flex w-fit items-center gap-2 text-sm font-medium text-muted-foreground transition-colors",
-                        isAudioToggleLocked ? "cursor-not-allowed opacity-70" : "hover:text-foreground",
-                      )}
-                      aria-pressed={normalizedConfig.includeAudio}
-                    >
-                      <span
-                        className={cn(
-                          "flex size-5 items-center justify-center rounded-full border transition-all",
-                          normalizedConfig.includeAudio
-                            ? "border-[color:var(--line-strong)] bg-[rgba(223,192,143,0.14)] text-[color:var(--accent-2)]"
-                            : "border-[color:var(--line)] bg-black/20 text-transparent",
-                        )}
-                      >
-                        <Check className="size-3" />
-                      </span>
-                      Source audio
-                    </button>
-                    <Select
-                      value={normalizedConfig.audioFormatId === "auto" ? "auto" : normalizedConfig.audioFormatId}
-                      onValueChange={(value) =>
-                        onConfigChange((current) =>
-                          coerceExpandedConfig(metadata, {
-                            ...current,
-                            audioFormatId: value === "auto" ? "auto" : value,
-                          }),
-                        )
-                      }
-                      disabled={!normalizedConfig.includeAudio || !allowsManualAudio || audioFormats.length === 0}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Choose audio stream" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectGroup>
-                          <SelectLabel>Audio-only formats</SelectLabel>
-                          <SelectItem value="auto">Auto | best available audio</SelectItem>
-                          {audioFormats.map((format) => (
-                            <SelectItem key={format.format_id} value={format.format_id}>
-                              {buildAudioFormatLabel(format)}
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs leading-5 text-muted-foreground">
-                      {allowsManualAudio
-                        ? audioFormats.length > 0
-                          ? "If the video stream is separate, Nodus will attach your chosen audio track."
-                          : "No standalone audio streams were returned for this media."
-                        : "The selected video already includes audio, so the separate audio selector is locked."}
-                    </p>
                   </div>
                 </div>
               </section>

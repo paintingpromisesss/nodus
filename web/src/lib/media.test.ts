@@ -152,6 +152,7 @@ describe("download request builders", () => {
   it("builds expanded original payload with auto audio", () => {
     const config: ExpandedConfig = {
       isExpanded: true,
+      overrideQuickQuality: true,
       includeVideo: true,
       includeAudio: true,
       videoFormatId: "136",
@@ -172,6 +173,7 @@ describe("download request builders", () => {
   it("builds expanded convert payload with explicit container and codecs", () => {
     const config = coerceExpandedConfig(sampleMetadata, {
       isExpanded: true,
+      overrideQuickQuality: true,
       includeVideo: true,
       includeAudio: true,
       videoFormatId: "247",
@@ -203,6 +205,7 @@ describe("download request builders", () => {
   it("formats convert summary with target codecs", () => {
     const config = coerceExpandedConfig(sampleMetadata, {
       isExpanded: true,
+      overrideQuickQuality: true,
       includeVideo: true,
       includeAudio: true,
       videoFormatId: "247",
@@ -221,6 +224,7 @@ describe("download request builders", () => {
   it("filters remux containers by selected source codecs", () => {
     const config = coerceExpandedConfig(sampleMetadata, {
       isExpanded: true,
+      overrideQuickQuality: true,
       includeVideo: false,
       includeAudio: true,
       videoFormatId: "136",
@@ -242,6 +246,7 @@ describe("download request builders", () => {
   it("normalizes invalid remux containers to a compatible option", () => {
     const config = coerceExpandedConfig(sampleMetadata, {
       isExpanded: true,
+      overrideQuickQuality: true,
       includeVideo: false,
       includeAudio: true,
       videoFormatId: "136",
@@ -259,6 +264,7 @@ describe("download request builders", () => {
   it("keeps audio-only remux state valid when a muxed video format exists in background selection", () => {
     const config = coerceExpandedConfig(sampleMetadata, {
       isExpanded: true,
+      overrideQuickQuality: true,
       includeVideo: false,
       includeAudio: true,
       videoFormatId: "18",
@@ -301,6 +307,7 @@ describe("download request builders", () => {
 
     const config = coerceExpandedConfig(metadataWithRawCodecs, {
       isExpanded: true,
+      overrideQuickQuality: true,
       includeVideo: true,
       includeAudio: true,
       videoFormatId: "401",
@@ -330,6 +337,7 @@ describe("download request builders", () => {
 
     const config = coerceExpandedConfig(muxedOnlyMetadata, {
       isExpanded: true,
+      overrideQuickQuality: true,
       includeVideo: true,
       includeAudio: false,
       videoFormatId: "18",
@@ -346,6 +354,7 @@ describe("download request builders", () => {
   it("keeps source audio enabled when the selected video format is muxed", () => {
     const config = coerceExpandedConfig(sampleMetadata, {
       isExpanded: true,
+      overrideQuickQuality: true,
       includeVideo: true,
       includeAudio: false,
       videoFormatId: "18",
@@ -372,6 +381,7 @@ describe("download request builders", () => {
 
     const config = coerceExpandedConfig(muxedOnlyMetadata, {
       isExpanded: true,
+      overrideQuickQuality: true,
       includeVideo: false,
       includeAudio: true,
       videoFormatId: "18",
@@ -383,5 +393,22 @@ describe("download request builders", () => {
     });
 
     expect(config.includeVideo).toBe(true);
+  });
+
+  it("preserves quick quality override flag when normalizing config", () => {
+    const config = coerceExpandedConfig(sampleMetadata, {
+      isExpanded: true,
+      overrideQuickQuality: true,
+      includeVideo: true,
+      includeAudio: true,
+      videoFormatId: "136",
+      audioFormatId: "auto",
+      mode: "original",
+      container: null,
+      vcodec: null,
+      acodec: null,
+    });
+
+    expect(config.overrideQuickQuality).toBe(true);
   });
 });

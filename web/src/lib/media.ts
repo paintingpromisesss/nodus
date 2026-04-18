@@ -60,6 +60,7 @@ export type ExpandedMode = "original" | "remux" | "convert";
 
 export interface ExpandedConfig {
   isExpanded: boolean;
+  overrideQuickQuality: boolean;
   includeVideo: boolean;
   includeAudio: boolean;
   videoFormatId: string | null;
@@ -343,6 +344,7 @@ export function getCompactChoices(metadata: MediaMetadata): CompactChoice[] {
 export function createInitialExpandedConfig(metadata: MediaMetadata): ExpandedConfig {
   return coerceExpandedConfig(metadata, {
     isExpanded: false,
+    overrideQuickQuality: false,
     includeVideo: getVideoFormats(metadata).length > 0,
     includeAudio: getVideoFormats(metadata).length > 0 || getAudioOnlyFormats(metadata).length > 0,
     videoFormatId: getVideoFormats(metadata)[0]?.format_id ?? null,
@@ -410,6 +412,7 @@ export function coerceExpandedConfig(metadata: MediaMetadata, draft: ExpandedCon
 
   return {
     isExpanded: draft.isExpanded,
+    overrideQuickQuality: Boolean(draft.overrideQuickQuality),
     includeVideo,
     includeAudio,
     videoFormatId: selectedVideoFormat?.format_id ?? null,
