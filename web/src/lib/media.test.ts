@@ -5,7 +5,10 @@ import {
   coerceExpandedConfig,
   describeCompactSelection,
   describeSelection,
+  getAudioCodecOptions,
   getCompatibleContainersForConfig,
+  getSourceCodecsForConfig,
+  getVideoCodecOptions,
   normalizeUrlInput,
   type ExpandedConfig,
   type MediaMetadata,
@@ -194,6 +197,144 @@ describe("download request builders", () => {
         acodec: "opus",
       },
     });
+  });
+
+  it("defaults convert codecs to source copy options and removes duplicate codec entries", () => {
+    const config = coerceExpandedConfig(sampleMetadata, {
+      isExpanded: true,
+      overrideQuickQuality: true,
+      includeVideo: true,
+      includeAudio: true,
+      videoFormatId: "247",
+      audioFormatId: "140",
+      mode: "convert",
+      container: "webm",
+      vcodec: null,
+      acodec: null,
+    });
+
+    const sourceCodecs = getSourceCodecsForConfig(sampleMetadata, config);
+    const videoCodecOptions = getVideoCodecOptions(config.container!, true, sourceCodecs.video);
+    const audioCodecOptions = getAudioCodecOptions(config.container!, true, sourceCodecs.audio);
+
+    expect(config.vcodec).toBe("vp9");
+    expect(config.acodec).toBe("opus");
+    expect(videoCodecOptions).toEqual(["vp9", "vp8", "av1"]);
+    expect(audioCodecOptions).toEqual(["opus", "vorbis"]);
+  });
+
+  it("rebuilds copy option when selected source codecs change", () => {
+    const av1Metadata: MediaMetadata = {
+      ...sampleMetadata,
+      formats: sampleMetadata.formats.map((format) =>
+        format.format_id === "247"
+          ? {
+              ...format,
+              format_id: "401",
+              vcodec: "av01.0.08M.08",
+            }
+          : format,
+      ),
+    };
+
+    const av1Config = coerceExpandedConfig(av1Metadata, {
+      isExpanded: true,
+      overrideQuickQuality: true,
+      includeVideo: true,
+      includeAudio: true,
+      videoFormatId: "401",
+      audioFormatId: "140",
+      mode: "convert",
+      container: "mp4",
+      vcodec: null,
+      acodec: null,
+    });
+    const av1SourceCodecs = getSourceCodecsForConfig(av1Metadata, av1Config);
+
+    const h264Config = coerceExpandedConfig(sampleMetadata, {
+      ...av1Config,
+      videoFormatId: "136",
+      container: "mp4",
+      vcodec: null,
+    });
+    const h264SourceCodecs = getSourceCodecsForConfig(sampleMetadata, h264Config);
+
+    expect(getVideoCodecOptions("mp4", true, av1SourceCodecs.video)).toEqual(["av1", "h264", "hevc", "vp9"]);
+    expect(getVideoCodecOptions("mp4", true, h264SourceCodecs.video)).toEqual(["h264", "hevc", "av1", "vp9"]);
+  });
+
+  it("resets codecs back to source copy options when leaving convert mode", () => {
+    const convertConfig = coerceExpandedConfig(sampleMetadata, {
+      isExpanded: true,
+      overrideQuickQuality: true,
+      includeVideo: true,
+      includeAudio: true,
+      videoFormatId: "247",
+      audioFormatId: "251",
+      mode: "convert",
+      container: "mov",
+      vcodec: "h264",
+      acodec: "aac",
+    });
+
+    expect(convertConfig.vcodec).toBe("h264");
+    expect(convertConfig.acodec).toBe("aac");
+
+    const remuxConfig = coerceExpandedConfig(sampleMetadata, {
+      ...convertConfig,
+      mode: "remux",
+      container: "mp4",
+    });
+
+    expect(remuxConfig.vcodec).toBe("vp9");
+    expect(remuxConfig.acodec).toBe("opus");
+  });
+
+  it("uses the real output container and source codecs in original mode instead of stale convert state", () => {
+    const originalConfig = coerceExpandedConfig(sampleMetadata, {
+      isExpanded: true,
+      overrideQuickQuality: true,
+      includeVideo: true,
+      includeAudio: true,
+      videoFormatId: "247",
+      audioFormatId: "251",
+      mode: "original",
+      container: "mov",
+      vcodec: "h264",
+      acodec: "aac",
+    });
+
+    expect(originalConfig.container).toBe("webm");
+    expect(originalConfig.vcodec).toBe("vp9");
+    expect(originalConfig.acodec).toBe("opus");
+  });
+
+  it("defaults back to source copy codecs when convert container becomes compatible again", () => {
+    const movConfig = coerceExpandedConfig(sampleMetadata, {
+      isExpanded: true,
+      overrideQuickQuality: true,
+      includeVideo: true,
+      includeAudio: true,
+      videoFormatId: "247",
+      audioFormatId: "251",
+      mode: "convert",
+      container: "mov",
+      vcodec: null,
+      acodec: null,
+    });
+
+    expect(movConfig.vcodec).toBe("h264");
+    expect(movConfig.acodec).toBe("aac");
+
+    const mp4Config = coerceExpandedConfig(sampleMetadata, {
+      ...movConfig,
+      container: "mp4",
+      vcodec: null,
+      acodec: null,
+    });
+
+    expect(mp4Config.vcodec).toBe("vp9");
+    expect(mp4Config.acodec).toBe("opus");
   });
 
   it("formats compact summary as video, audio, container, size", () => {

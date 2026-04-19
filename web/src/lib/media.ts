@@ -401,14 +401,19 @@ export function coerceExpandedConfig(metadata: MediaMetadata, draft: ExpandedCon
   });
 
   const containerOptions = getCompatibleContainersForSelection(selectedStreams, draft.mode);
-  const container = normalizeContainerChoice(
-    draft.container,
-    containerOptions,
-    selectedStreams.hasVideo,
-    selectedStreams.hasAudio,
-  );
-  const videoCodecOptions = container ? getVideoCodecOptions(container, selectedStreams.hasVideo) : [];
-  const audioCodecOptions = container ? getAudioCodecOptions(container, selectedStreams.hasAudio) : [];
+  const container =
+    draft.mode === "original"
+      ? getResolvedSelectionContainer(selectedStreams)
+      : normalizeContainerChoice(
+          draft.container,
+          containerOptions,
+          selectedStreams.hasVideo,
+          selectedStreams.hasAudio,
+        );
+  const sourceVideoCodec = getFormatVideoCodec(selectedStreams.videoFormat);
+  const sourceAudioCodec = getSelectedAudioCodec(selectedStreams);
+  const videoCodecOptions = container ? getVideoCodecOptions(container, selectedStreams.hasVideo, sourceVideoCodec) : [];
+  const audioCodecOptions = container ? getAudioCodecOptions(container, selectedStreams.hasAudio, sourceAudioCodec) : [];
 
   return {
     isExpanded: draft.isExpanded,
@@ -419,8 +424,14 @@ export function coerceExpandedConfig(metadata: MediaMetadata, draft: ExpandedCon
     audioFormatId: audioMode,
     mode: draft.mode,
     container,
-    vcodec: videoCodecOptions.some((value) => value === draft.vcodec) ? draft.vcodec : videoCodecOptions[0] ?? null,
-    acodec: audioCodecOptions.some((value) => value === draft.acodec) ? draft.acodec : audioCodecOptions[0] ?? null,
+    vcodec:
+      draft.mode === "convert" && videoCodecOptions.some((value) => value === draft.vcodec)
+        ? draft.vcodec
+        : videoCodecOptions[0] ?? null,
+    acodec:
+      draft.mode === "convert" && audioCodecOptions.some((value) => value === draft.acodec)
+        ? draft.acodec
+        : audioCodecOptions[0] ?? null,
   };
 }
 
@@ -460,20 +471,30 @@ export function splitCompatibleContainers(containers: string[]) {
   return { audioOnly, videoCapable };
 }
 
-export function getVideoCodecOptions(container: string, hasVideoStream: boolean) {
+export function getVideoCodecOptions(container: string, hasVideoStream: boolean, sourceCodec?: string | null) {
   if (!hasVideoStream || !isKnownContainer(container)) {
     return [];
   }
 
-  return [...CONTAINER_CODEC_RULES[container].video];
+  return prioritizeCodecOptions(CONTAINER_CODEC_RULES[container].video, sourceCodec ?? null);
 }
 
-export function getAudioCodecOptions(container: string, hasAudioStream: boolean) {
+export function getAudioCodecOptions(container: string, hasAudioStream: boolean, sourceCodec?: string | null) {
   if (!hasAudioStream || !isKnownContainer(container)) {
     return [];
   }
 
-  return [...CONTAINER_CODEC_RULES[container].audio];
+  return prioritizeCodecOptions(CONTAINER_CODEC_RULES[container].audio, sourceCodec ?? null);
+}
+
+export function getSourceCodecsForConfig(metadata: MediaMetadata, config: ExpandedConfig) {
+  const normalized = coerceExpandedConfig(metadata, config);
+  const resolved = resolveExpandedStreams(metadata, normalized);
+
+  return {
+    video: getResolvedVideoCodec(resolved),
+    audio: getResolvedAudioCodec(resolved),
+  };
 }
 
 export function buildCompactDownloadRequest(
@@ -774,6 +795,10 @@ function normalizeContainerChoice(
   }
 
   return available[0] ?? null;
+}
+
+function getResolvedSelectionContainer(selected: SelectedStreams) {
+  return selected.videoFormat?.ext ?? selected.audioFormat?.ext ?? null;
 }
 
 function compareCompactChoices(left: CompactChoice, right: CompactChoice) {
@@ -1116,6 +1141,15 @@ function normalizeCodecValue(codec: string | null) {
     return null;
   }
   return normalized;
+}
+
+function prioritizeCodecOptions(codecs: readonly string[], preferredCodec: string | null) {
+  const normalizedPreferred = normalizeCodecValue(preferredCodec);
+  if (!normalizedPreferred || !codecs.some((codec) => codec === normalizedPreferred)) {
+    return [...codecs];
+  }
+
+  return [normalizedPreferred, ...codecs.filter((codec) => codec !== normalizedPreferred)];
 }
 
 function buildSummaryVideoPart(format: MediaFormat | null, codec: string | null) {

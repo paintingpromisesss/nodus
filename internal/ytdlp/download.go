@@ -8,6 +8,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"unicode"
+
+	"github.com/paintingpromisesss/nodus-backend/internal/ffmpeg"
 )
 
 type DownloadResult struct {
@@ -97,6 +100,16 @@ func (c *Client) Download(ctx context.Context, url string, options DownloadOptio
 		}
 	}
 
+	probeResult, err := c.FFmpegClient.ProbeCodecs(ctx, filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	filePath, err = appendCodecsToFilename(filePath, probeResult)
+	if err != nil {
+		return nil, err
+	}
+
 	contentType := mime.TypeByExtension(strings.ToLower(filepath.Ext(filePath)))
 	if contentType == "" {
 		contentType = "application/octet-stream"
@@ -108,4 +121,68 @@ func (c *Client) Download(ctx context.Context, url string, options DownloadOptio
 		ContentType:  contentType,
 		DetectedMIME: contentType,
 	}, nil
+}
+
+func appendCodecsToFilename(filePath string, probeResult *ffmpeg.ProbeResult) (string, error) {
+	if probeResult == nil {
+		return filePath, nil
+	}
+
+	codecs := make([]string, 0, 2)
+	if videoCodec := strings.TrimSpace(probeResult.VideoCodec); videoCodec != "" {
+		codecs = append(codecs, videoCodec)
+	}
+	if audioCodec := strings.TrimSpace(probeResult.AudioCodec); audioCodec != "" {
+		codecs = append(codecs, audioCodec)
+	}
+
+	if len(codecs) == 0 {
+		return filePath, nil
+	}
+
+	dir := filepath.Dir(filePath)
+	ext := filepath.Ext(filePath)
+	base := normalizeFilenameBase(strings.TrimSuffix(filepath.Base(filePath), ext))
+	targetPath := filepath.Join(dir, fmt.Sprintf("%s [%s]%s", base, strings.Join(codecs, " + "), ext))
+
+	if targetPath == filePath {
+		return filePath, nil
+	}
+
+	if _, err := os.Stat(targetPath); err == nil {
+		return filePath, nil
+	} else if !os.IsNotExist(err) {
+		return "", fmt.Errorf("stat renamed download path: %w", err)
+	}
+
+	if err := os.Rename(filePath, targetPath); err != nil {
+		return "", fmt.Errorf("rename downloaded file with codecs: %w", err)
+	}
+
+	return targetPath, nil
+}
+
+func normalizeFilenameBase(name string) string {
+	name = strings.Map(func(r rune) rune {
+		switch r {
+		case '＂', '“', '”', '„', '‟', '«', '»', '〝', '〞':
+			return '\''
+		case '‘', '’', '‚', '‛':
+			return '\''
+		}
+
+		if unicode.IsSpace(r) {
+			return ' '
+		}
+
+		return r
+	}, name)
+
+	name = strings.Join(strings.Fields(name), " ")
+	name = strings.Trim(name, " .")
+	if name == "" {
+		return "download"
+	}
+
+	return name
 }

@@ -22,14 +22,13 @@ import {
   coerceExpandedConfig,
   describeCompactSelection,
   describeSelection,
-  formatBytes,
   formatDuration,
-  getApproxSize,
   getAudioCodecOptions,
   getAudioOnlyFormats,
   getCompactChoices,
   getCompatibleContainersForConfig,
   getMediaBadgeLabel,
+  getSourceCodecsForConfig,
   getVideoCodecOptions,
   getVideoFormats,
   hasAudio,
@@ -66,6 +65,7 @@ export function MediaCard({
   const audioFormats = getAudioOnlyFormats(metadata);
   const activeVideo = videoFormats.find((format) => format.format_id === normalizedConfig.videoFormatId) ?? videoFormats[0] ?? null;
   const allowsManualAudio = Boolean(activeVideo ? !hasAudio(activeVideo) : true);
+  const muxedAudioLabel = activeVideo && hasAudio(activeVideo) ? buildMuxedFormatLabel(activeVideo).audioLine : null;
   const isVideoToggleLocked = Boolean(
     normalizedConfig.includeAudio && activeVideo && hasAudio(activeVideo) && audioFormats.length === 0,
   );
@@ -79,11 +79,12 @@ export function MediaCard({
   const containerOptions = hasSelectedSources ? getCompatibleContainersForConfig(metadata, normalizedConfig) : [];
   const { audioOnly: audioOnlyContainers, videoCapable: videoCapableContainers } =
     splitCompatibleContainers(containerOptions);
+  const sourceCodecs = getSourceCodecsForConfig(metadata, normalizedConfig);
   const videoCodecOptions = normalizedConfig.container
-    ? getVideoCodecOptions(normalizedConfig.container, hasVideoStream)
+    ? getVideoCodecOptions(normalizedConfig.container, hasVideoStream, sourceCodecs.video)
     : [];
   const audioCodecOptions = normalizedConfig.container
-    ? getAudioCodecOptions(normalizedConfig.container, hasAudioStream)
+    ? getAudioCodecOptions(normalizedConfig.container, hasAudioStream, sourceCodecs.audio)
     : [];
   const hasDownloads = compactChoices.length > 0;
   const compactSummary = compactChoice ? describeCompactSelection(metadata, compactChoice.id) : "No format options";
@@ -106,7 +107,6 @@ export function MediaCard({
   const sourceUrl = metadata.original_url || card.url;
   const platform = resolvePlatform(sourceUrl);
   const thumbnail = metadata.thumbnail || "";
-  const approxSize = getApproxSize(activeVideo ?? audioFormats[0] ?? metadata.formats[0]);
 
   const isExpandedDownloadDisabled = !hasDownloads || card.download.status === "pending" || !hasSelectedSources;
 
@@ -149,12 +149,6 @@ export function MediaCard({
                 <span>{formatDuration(metadata.duration)}</span>
                 <span className="nodus-dot" />
                 <span>{mediaBadge}</span>
-                {approxSize > 0 ? (
-                  <>
-                    <span className="nodus-dot" />
-                    <span>{formatBytes(approxSize)}</span>
-                  </>
-                ) : null}
               </div>
 
               <div className="rounded-full border border-[color:var(--line)] bg-black/20 px-3 py-1 text-[0.7rem] uppercase tracking-[0.2em] text-muted-foreground w-fit">
@@ -331,14 +325,16 @@ export function MediaCard({
                         </button>
                         <Select
                           value={normalizedConfig.videoFormatId ?? undefined}
-                          onValueChange={(value) =>
-                            onConfigChange((current) =>
-                              coerceExpandedConfig(metadata, {
-                                ...current,
-                                videoFormatId: value,
-                              }),
-                            )
-                          }
+                        onValueChange={(value) =>
+                          onConfigChange((current) =>
+                            coerceExpandedConfig(metadata, {
+                              ...current,
+                              videoFormatId: value,
+                              vcodec: null,
+                              acodec: null,
+                            }),
+                          )
+                        }
                           disabled={isInputSectionDisabled || !normalizedConfig.includeVideo}
                         >
                           <SelectTrigger>
@@ -414,33 +410,41 @@ export function MediaCard({
                         </span>
                         Source audio
                       </button>
-                      <Select
-                        value={normalizedConfig.audioFormatId === "auto" ? "auto" : normalizedConfig.audioFormatId}
-                        onValueChange={(value) =>
-                          onConfigChange((current) =>
-                            coerceExpandedConfig(metadata, {
-                              ...current,
-                              audioFormatId: value === "auto" ? "auto" : value,
-                            }),
-                          )
-                        }
-                        disabled={isInputSectionDisabled || !normalizedConfig.includeAudio || !allowsManualAudio || audioFormats.length === 0}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Choose audio stream" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectGroup>
-                            <SelectLabel>Audio-only formats</SelectLabel>
-                            <SelectItem value="auto">Auto | best available audio</SelectItem>
-                            {audioFormats.map((format) => (
-                              <SelectItem key={format.format_id} value={format.format_id}>
-                                {buildAudioFormatLabel(format)}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
+                      {!allowsManualAudio && muxedAudioLabel ? (
+                        <div className="flex h-11 w-full items-center justify-between rounded-[0.95rem] border border-[color:var(--line)] bg-white/[0.03] px-4 py-2 text-sm text-foreground opacity-50">
+                          <span className="line-clamp-1">{muxedAudioLabel}</span>
+                          <ChevronDown className="size-4 text-muted-foreground" />
+                        </div>
+                      ) : (
+                        <Select
+                          value={normalizedConfig.audioFormatId === "auto" ? "auto" : normalizedConfig.audioFormatId}
+                          onValueChange={(value) =>
+                            onConfigChange((current) =>
+                              coerceExpandedConfig(metadata, {
+                                ...current,
+                                audioFormatId: value === "auto" ? "auto" : value,
+                                acodec: null,
+                              }),
+                            )
+                          }
+                          disabled={isInputSectionDisabled || !normalizedConfig.includeAudio || audioFormats.length === 0}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Choose audio stream" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectGroup>
+                              <SelectLabel>Audio-only formats</SelectLabel>
+                              <SelectItem value="auto">Auto | best available audio</SelectItem>
+                              {audioFormats.map((format) => (
+                                <SelectItem key={format.format_id} value={format.format_id}>
+                                  {buildAudioFormatLabel(format)}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
+                      )}
                       <p className="text-xs leading-5 text-muted-foreground">
                         {allowsManualAudio
                           ? audioFormats.length > 0
@@ -505,6 +509,8 @@ export function MediaCard({
                           coerceExpandedConfig(metadata, {
                             ...current,
                             container: value,
+                            vcodec: null,
+                            acodec: null,
                           }),
                         )
                       }
@@ -566,7 +572,7 @@ export function MediaCard({
                             <SelectLabel>Video codecs</SelectLabel>
                             {videoCodecOptions.map((codec) => (
                               <SelectItem key={codec} value={codec}>
-                                {codec.toUpperCase()}
+                                {codec === sourceCodecs.video ? `Copy (${codec.toUpperCase()})` : codec.toUpperCase()}
                               </SelectItem>
                             ))}
                           </SelectGroup>
@@ -596,7 +602,7 @@ export function MediaCard({
                             <SelectLabel>Audio codecs</SelectLabel>
                             {audioCodecOptions.map((codec) => (
                               <SelectItem key={codec} value={codec}>
-                                {codec.toUpperCase()}
+                                {codec === sourceCodecs.audio ? `Copy (${codec.toUpperCase()})` : codec.toUpperCase()}
                               </SelectItem>
                             ))}
                           </SelectGroup>
