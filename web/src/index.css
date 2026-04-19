@@ -61,6 +61,26 @@
 }
 
 @layer components {
+  @keyframes resolve-overlay-out {
+    from {
+      opacity: 1;
+    }
+
+    to {
+      opacity: 0;
+    }
+  }
+
+  @keyframes resolve-content-in {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
   .nodus-surface {
     background-color: rgba(21, 17, 15, 0.92);
     background-image: linear-gradient(
@@ -98,6 +118,16 @@
   .nodus-dot {
     @apply inline-block size-1 rounded-full;
     background-color: hsl(var(--accent));
+  }
+
+  .animate-resolve-overlay-out {
+    animation: resolve-overlay-out 170ms ease-out forwards;
+    will-change: opacity;
+  }
+
+  .animate-resolve-content-in {
+    animation: resolve-content-in 180ms ease-out forwards;
+    will-change: opacity;
   }
 }
 

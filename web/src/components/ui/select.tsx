@@ -240,7 +240,7 @@ const SelectContent = React.forwardRef<
       <SelectPrimitive.Content
         ref={ref}
         className={cn(
-          "relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-[1.1rem] border border-[color:var(--line)] bg-[rgba(20,20,20,0.98)] text-foreground shadow-nodus",
+          "animate-fade-in relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-[1.1rem] border border-[color:var(--line)] bg-[rgba(20,20,20,0.98)] text-foreground shadow-nodus will-change-[opacity]",
           position === "popper" &&
             "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",
           className,
@@ -251,7 +251,7 @@ const SelectContent = React.forwardRef<
         <SelectPrimitive.Viewport
           ref={setViewportNode}
           className={cn(
-            "animate-fade-up max-h-96 overflow-y-auto overflow-x-hidden p-1.5 pr-5",
+            "max-h-96 overflow-y-auto overflow-x-hidden p-1.5 pr-5",
             position === "popper" && "w-full min-w-[var(--radix-select-trigger-width)]",
           )}
         >

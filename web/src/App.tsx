@@ -1,9 +1,7 @@
 import * as React from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { AlertCircle, Globe2, Link2, LoaderCircle } from "lucide-react";
-import { ErrorCard } from "@/components/media/error-card";
-import { MediaCard } from "@/components/media/media-card";
-import { PendingCard } from "@/components/media/pending-card";
+import { MediaCardSlot } from "@/components/media/media-card-slot";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -365,22 +363,14 @@ export default function App() {
           ) : (
             <div className="grid gap-4">
               {cards.map((card) => {
-                if (card.state === "pending") {
-                  return <PendingCard key={`${card.index}:${card.url}`} url={card.url} />;
-                }
-
-                if (card.state === "error") {
-                  return <ErrorCard key={`${card.index}:${card.url}`} url={card.url} message={card.message} />;
-                }
-
                 return (
-                  <MediaCard
+                  <MediaCardSlot
                     key={`${card.index}:${card.url}`}
                     card={card}
-                    onCompactChoiceChange={(value) => handleCompactChoiceChange(card.index, value)}
-                    onConfigChange={(updater) => handleConfigChange(card.index, updater)}
-                    onCompactDownload={() => void handleCompactDownload(card.index)}
-                    onExpandedDownload={() => void handleExpandedDownload(card.index)}
+                    onCompactChoiceChange={handleCompactChoiceChange}
+                    onConfigChange={handleConfigChange}
+                    onCompactDownload={handleCompactDownload}
+                    onExpandedDownload={handleExpandedDownload}
                   />
                 );
               })}

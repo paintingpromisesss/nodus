@@ -1,49 +1,60 @@
 import { LoaderCircle } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getDomainFromUrl } from "@/lib/media";
+import { cn } from "@/lib/utils";
 
 interface PendingCardProps {
   url: string;
+  className?: string;
+  staticPreview?: boolean;
 }
 
-export function PendingCard({ url }: PendingCardProps) {
+export function PendingCard({ url: _url, className, staticPreview = false }: PendingCardProps) {
+  const skeletonClassName = staticPreview
+    ? "rounded-[1rem] bg-white/[0.08]"
+    : "animate-shimmer rounded-[1rem] bg-[linear-gradient(110deg,rgba(255,255,255,0.05),rgba(255,255,255,0.12),rgba(255,255,255,0.05))] bg-[length:200%_100%]";
+
   return (
-    <Card className="nodus-surface overflow-hidden animate-fade-up">
+    <Card className={cn("nodus-surface overflow-hidden animate-fade-up", className)}>
       <div className="grid gap-6 p-5 lg:grid-cols-[15rem,minmax(0,1fr)] lg:p-6">
-        <div className="relative">
-          <Skeleton className="aspect-[1.16] w-full rounded-[1.35rem]" />
-          <div className="absolute inset-x-3 bottom-3 rounded-[1.1rem] border border-white/8 bg-[rgba(14,12,11,0.72)] px-3 py-2 backdrop-blur">
-            <p className="text-[0.68rem] uppercase tracking-[0.22em] text-[color:var(--accent-2)]">Source</p>
-            <p className="mt-1 truncate text-sm text-foreground">{getDomainFromUrl(url)}</p>
-          </div>
+        <div className="relative lg:self-start">
+          <Skeleton className={cn("aspect-[1.16] w-full rounded-[1.35rem]", skeletonClassName)} />
         </div>
 
-        <div className="grid gap-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="grid min-w-0 gap-4">
+          <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="grid min-w-0 gap-3">
-              <p className="section-kicker">Resolving media card</p>
-              <Skeleton className="h-12 w-full max-w-[30rem]" />
-              <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                <span>Waiting for metadata</span>
-                <span className="nodus-dot" />
-                <span>Slot reserved</span>
+              <Skeleton className={cn("h-12 w-full max-w-[38rem] rounded-[0.95rem]", skeletonClassName)} />
+
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <Skeleton className={cn("h-4 w-14 rounded-full", skeletonClassName)} />
+                <span className="nodus-dot opacity-40" />
+                <Skeleton className={cn("h-4 w-12 rounded-full", skeletonClassName)} />
               </div>
+
+              <Skeleton className={cn("h-7 w-36 rounded-full", skeletonClassName)} />
             </div>
 
-            <Badge variant="outline" className="gap-2 px-3 py-1.5">
-              <LoaderCircle className="size-3.5 animate-spin" />
-              Fetching
-            </Badge>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-3">
-            <Skeleton className="h-20 rounded-[1.25rem]" />
-            <Skeleton className="h-20 rounded-[1.25rem]" />
-            <Skeleton className="h-20 rounded-[1.25rem]" />
+            <div className="flex items-center gap-2 rounded-full border border-[color:var(--line)] bg-black/20 px-3 py-1.5 text-xs uppercase tracking-[0.14em] text-muted-foreground">
+              <LoaderCircle className={cn("size-3.5 text-[color:var(--accent)]", !staticPreview && "animate-spin")} />
+              Loading
+            </div>
           </div>
         </div>
+      </div>
+
+      <Separator className="bg-white/[0.05]" />
+
+      <div className="grid gap-3 p-5 lg:grid-cols-[3.25rem,15rem,minmax(0,1fr),auto] lg:items-center lg:p-6">
+        <Skeleton className={cn("h-12 w-[3.25rem] rounded-[1rem]", skeletonClassName)} />
+        <Skeleton className={cn("h-12 w-full rounded-[1rem]", skeletonClassName)} />
+
+        <div className="hidden justify-end lg:flex">
+          <Skeleton className={cn("h-10 w-full max-w-[24rem] rounded-full", skeletonClassName)} />
+        </div>
+
+        <Skeleton className={cn("h-12 w-full rounded-[1rem] lg:w-[11rem]", skeletonClassName)} />
       </div>
     </Card>
   );

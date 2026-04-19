@@ -46,6 +46,7 @@ interface MediaCardProps {
   onConfigChange: (updater: (current: ExpandedConfig) => ExpandedConfig) => void;
   onCompactDownload: () => void;
   onExpandedDownload: () => void;
+  className?: string;
 }
 
 export function MediaCard({
@@ -54,6 +55,7 @@ export function MediaCard({
   onConfigChange,
   onCompactDownload,
   onExpandedDownload,
+  className,
 }: MediaCardProps) {
   const { metadata } = card;
   const compactChoices = getCompactChoices(metadata);
@@ -111,7 +113,7 @@ export function MediaCard({
   const isExpandedDownloadDisabled = !hasDownloads || card.download.status === "pending" || !hasSelectedSources;
 
   return (
-    <Card className="nodus-surface relative overflow-hidden animate-fade-up">
+    <Card className={cn("nodus-surface relative overflow-hidden animate-fade-up", className)}>
       <a
         href={sourceUrl}
         target="_blank"
