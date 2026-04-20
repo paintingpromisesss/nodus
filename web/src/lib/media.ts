@@ -57,6 +57,7 @@ export type MetadataStreamEvent =
 
 export type MediaCardState = "pending" | "success" | "error";
 export type ExpandedMode = "original" | "remux" | "convert";
+export type QuickQualityMode = "quality" | "size";
 
 export interface ExpandedConfig {
   isExpanded: boolean;
@@ -104,6 +105,7 @@ export interface SuccessMediaCard {
   url: string;
   metadata: MediaMetadata;
   compactChoiceId: string;
+   quickQualityMode: QuickQualityMode;
   config: ExpandedConfig;
   download: DownloadFeedback;
 }
@@ -302,8 +304,8 @@ export function getMediaBadgeLabel(metadata: MediaMetadata) {
   return "Video";
 }
 
-export function getCompactChoices(metadata: MediaMetadata): CompactChoice[] {
-  const videoFormats = getVideoFormats(metadata).sort(compareCompactVideoFormats);
+export function getCompactChoices(metadata: MediaMetadata, mode: QuickQualityMode = "quality"): CompactChoice[] {
+  const videoFormats = getVideoFormats(metadata).filter(isVideoOnly).sort((left, right) => compareCompactVideoFormats(left, right, mode));
 
   if (videoFormats.length === 0) {
     return getAudioOnlyFormats(metadata).map((format) => ({
@@ -326,7 +328,7 @@ export function getCompactChoices(metadata: MediaMetadata): CompactChoice[] {
 
   return Array.from(grouped.entries())
     .map(([key, formats]) => {
-      const sorted = [...formats].sort(compareCompactVideoFormats);
+      const sorted = [...formats].sort((left, right) => compareCompactVideoFormats(left, right, mode));
       const preferredFormat = sorted[0];
 
       return {
@@ -342,7 +344,9 @@ export function getCompactChoices(metadata: MediaMetadata): CompactChoice[] {
 }
 
 export function createInitialExpandedConfig(metadata: MediaMetadata): ExpandedConfig {
-  return coerceExpandedConfig(metadata, {
+  return syncExpandedConfigToCompactChoice(
+    metadata,
+    {
     isExpanded: false,
     overrideQuickQuality: false,
     includeVideo: getVideoFormats(metadata).length > 0,
@@ -353,7 +357,10 @@ export function createInitialExpandedConfig(metadata: MediaMetadata): ExpandedCo
     container: null,
     vcodec: null,
     acodec: null,
-  });
+    },
+    getCompactChoices(metadata, "quality")[0]?.id ?? "",
+    "quality",
+  );
 }
 
 export function coerceExpandedConfig(metadata: MediaMetadata, draft: ExpandedConfig): ExpandedConfig {
@@ -409,6 +416,7 @@ export function coerceExpandedConfig(metadata: MediaMetadata, draft: ExpandedCon
           containerOptions,
           selectedStreams.hasVideo,
           selectedStreams.hasAudio,
+          getResolvedSelectionContainer(selectedStreams),
         );
   const sourceVideoCodec = getFormatVideoCodec(selectedStreams.videoFormat);
   const sourceAudioCodec = getSelectedAudioCodec(selectedStreams);
@@ -449,6 +457,13 @@ export function getCompatibleContainersForConfig(metadata: MediaMetadata, config
   const normalized = coerceExpandedConfig(metadata, config);
   const resolved = resolveExpandedStreams(metadata, normalized);
   return getCompatibleContainersForResolvedStreams(resolved, normalized.mode);
+}
+
+export function getDefaultContainerForConfig(metadata: MediaMetadata, config: ExpandedConfig) {
+  return coerceExpandedConfig(metadata, {
+    ...config,
+    container: null,
+  }).container;
 }
 
 export function splitCompatibleContainers(containers: string[]) {
@@ -501,9 +516,30 @@ export function buildCompactDownloadRequest(
   url: string,
   metadata: MediaMetadata,
   compactChoiceId: string,
+  mode: QuickQualityMode = "quality",
 ): DownloadRequest {
-  const resolved = resolveCompactStreams(metadata, compactChoiceId);
+  const resolved = resolveCompactStreams(metadata, compactChoiceId, mode);
   return { url, format_id: resolved.formatId };
+}
+
+export function syncExpandedConfigToCompactChoice(
+  metadata: MediaMetadata,
+  config: ExpandedConfig,
+  compactChoiceId: string,
+  mode: QuickQualityMode = "quality",
+): ExpandedConfig {
+  const resolved = resolveCompactStreams(metadata, compactChoiceId, mode);
+
+  return coerceExpandedConfig(metadata, {
+    ...config,
+    includeVideo: resolved.hasVideo,
+    includeAudio: resolved.hasAudio,
+    videoFormatId: resolved.videoFormat?.format_id ?? null,
+    audioFormatId: resolved.audioFormat?.format_id ?? (resolved.hasAudio ? "auto" : config.audioFormatId),
+    container: null,
+    vcodec: null,
+    acodec: null,
+  });
 }
 
 export function buildExpandedDownloadRequest(
@@ -558,8 +594,12 @@ export function buildExpandedDownloadRequest(
   return request;
 }
 
-export function resolveCompactStreams(metadata: MediaMetadata, compactChoiceId: string): ResolvedStreams {
-  const choices = getCompactChoices(metadata);
+export function resolveCompactStreams(
+  metadata: MediaMetadata,
+  compactChoiceId: string,
+  mode: QuickQualityMode = "quality",
+): ResolvedStreams {
+  const choices = getCompactChoices(metadata, mode);
   const selectedChoice = choices.find((choice) => choice.id === compactChoiceId) ?? choices[0];
 
   if (!selectedChoice) {
@@ -699,8 +739,12 @@ export function describeSelection(metadata: MediaMetadata, config: ExpandedConfi
   });
 }
 
-export function describeCompactSelection(metadata: MediaMetadata, compactChoiceId: string) {
-  return describeResolvedStreams(resolveCompactStreams(metadata, compactChoiceId));
+export function describeCompactSelection(
+  metadata: MediaMetadata,
+  compactChoiceId: string,
+  mode: QuickQualityMode = "quality",
+) {
+  return describeResolvedStreams(resolveCompactStreams(metadata, compactChoiceId, mode));
 }
 
 export function describeResolvedStreams(
@@ -779,9 +823,14 @@ function normalizeContainerChoice(
   available: string[],
   hasVideoStream: boolean,
   hasAudioStream: boolean,
+  preferredContainer?: string | null,
 ) {
   if (current && available.includes(current)) {
     return current;
+  }
+
+  if (preferredContainer && available.includes(preferredContainer)) {
+    return preferredContainer;
   }
 
   if (hasVideoStream && available.includes("mp4")) {
@@ -812,28 +861,33 @@ function compareCompactChoices(left: CompactChoice, right: CompactChoice) {
   return rightValue - leftValue;
 }
 
-function compareCompactVideoFormats(left: MediaFormat, right: MediaFormat) {
-  const leftPriority = getCompactPriority(left);
-  const rightPriority = getCompactPriority(right);
-  if (leftPriority !== rightPriority) {
-    return leftPriority - rightPriority;
-  }
-
+function compareCompactVideoFormats(left: MediaFormat, right: MediaFormat, mode: QuickQualityMode) {
   const leftArea = (left.width || 0) * (left.height || 0);
   const rightArea = (right.width || 0) * (right.height || 0);
   if (leftArea !== rightArea) {
     return rightArea - leftArea;
   }
 
+  const bitrateDelta = getCompactBitrate(right) - getCompactBitrate(left);
+  if (mode === "quality" && bitrateDelta !== 0) {
+    return bitrateDelta;
+  }
+  if (mode === "size" && bitrateDelta !== 0) {
+    return -bitrateDelta;
+  }
+
   if ((left.fps || 0) !== (right.fps || 0)) {
-    return (right.fps || 0) - (left.fps || 0);
+    return mode === "quality"
+      ? (right.fps || 0) - (left.fps || 0)
+      : (left.fps || 0) - (right.fps || 0);
   }
 
-  if ((left.vbr || 0) !== (right.vbr || 0)) {
-    return (right.vbr || 0) - (left.vbr || 0);
+  const sizeDelta = getApproxSize(right) - getApproxSize(left);
+  if (sizeDelta !== 0) {
+    return mode === "quality" ? sizeDelta : -sizeDelta;
   }
 
-  return getApproxSize(right) - getApproxSize(left);
+  return (right.vbr || 0) - (left.vbr || 0);
 }
 
 function compareSourceVideoFormats(left: MediaFormat, right: MediaFormat) {
@@ -844,7 +898,7 @@ function compareSourceVideoFormats(left: MediaFormat, right: MediaFormat) {
     return leftRank - rightRank;
   }
 
-  return compareCompactVideoFormats(left, right);
+  return compareCompactVideoFormats(left, right, "quality");
 }
 
 function compareAudioFormats(left: MediaFormat, right: MediaFormat) {
@@ -855,20 +909,8 @@ function compareAudioFormats(left: MediaFormat, right: MediaFormat) {
   return getApproxSize(right) - getApproxSize(left);
 }
 
-function getCompactPriority(format: MediaFormat) {
-  if (isMuxed(format) && format.ext === "mp4") {
-    return 0;
-  }
-  if (isMuxed(format)) {
-    return 1;
-  }
-  if (isVideoOnly(format) && format.ext === "mp4") {
-    return 2;
-  }
-  if (isVideoOnly(format)) {
-    return 3;
-  }
-  return 4;
+function getCompactBitrate(format: MediaFormat) {
+  return format.vbr || format.abr || 0;
 }
 
 function getQualityKey(format: MediaFormat) {

@@ -14,9 +14,11 @@ import {
   createInitialExpandedConfig,
   getCompactChoices,
   normalizeUrlInput,
+  syncExpandedConfigToCompactChoice,
   type ExpandedConfig,
   type MediaCard as MediaCardRecord,
   type MediaMetadata,
+  type QuickQualityMode,
   type SuccessMediaCard,
 } from "@/lib/media";
 
@@ -162,14 +164,45 @@ export default function App() {
     updateSuccessCard(index, (card) => ({
       ...card,
       compactChoiceId,
+      config: card.config.overrideQuickQuality
+        ? card.config
+        : syncExpandedConfigToCompactChoice(card.metadata, card.config, compactChoiceId, card.quickQualityMode),
       download: { status: "idle" },
     }));
+  }
+
+  function handleQuickQualityModeChange(index: number, quickQualityMode: QuickQualityMode) {
+    updateSuccessCard(index, (card) => {
+      const compactChoices = getCompactChoices(card.metadata, quickQualityMode);
+      const hasCurrentChoice = compactChoices.some((choice) => choice.id === card.compactChoiceId);
+
+      return {
+        ...card,
+        quickQualityMode,
+        compactChoiceId: hasCurrentChoice ? card.compactChoiceId : (compactChoices[0]?.id ?? ""),
+        config: card.config.overrideQuickQuality
+          ? card.config
+          : syncExpandedConfigToCompactChoice(
+              card.metadata,
+              card.config,
+              hasCurrentChoice ? card.compactChoiceId : (compactChoices[0]?.id ?? ""),
+              quickQualityMode,
+            ),
+        download: { status: "idle" },
+      };
+    });
   }
 
   function handleConfigChange(index: number, updater: (current: ExpandedConfig) => ExpandedConfig) {
     updateSuccessCard(index, (card) => ({
       ...card,
-      config: updater(card.config),
+      config: (() => {
+        const nextConfig = updater(card.config);
+
+        return nextConfig.overrideQuickQuality
+          ? nextConfig
+          : syncExpandedConfigToCompactChoice(card.metadata, nextConfig, card.compactChoiceId, card.quickQualityMode);
+      })(),
       download: { status: "idle" },
     }));
   }
@@ -186,7 +219,7 @@ export default function App() {
     }));
 
     try {
-      const request = buildCompactDownloadRequest(card.url, card.metadata, card.compactChoiceId);
+      const request = buildCompactDownloadRequest(card.url, card.metadata, card.compactChoiceId, card.quickQualityMode);
       const result = await downloadMedia(request);
       triggerBlobDownload(result.blob, result.filename);
 
@@ -350,7 +383,7 @@ export default function App() {
           </div>
 
           {cards.length === 0 ? (
-            <Card className="nodus-surface px-6 py-10 text-center">
+            <Card className="nodus-surface flex min-h-[19rem] items-center justify-center px-6 py-10 text-center lg:min-h-[19rem]">
               <div className="mx-auto max-w-2xl space-y-3">
                 <p className="section-kicker">Nothing here yet</p>
                 <h3 className="font-display text-4xl tracking-[-0.04em] text-foreground">Cards will appear below</h3>
@@ -366,11 +399,12 @@ export default function App() {
                 return (
                   <MediaCardSlot
                     key={`${card.index}:${card.url}`}
-                    card={card}
-                    onCompactChoiceChange={handleCompactChoiceChange}
-                    onConfigChange={handleConfigChange}
-                    onCompactDownload={handleCompactDownload}
-                    onExpandedDownload={handleExpandedDownload}
+                     card={card}
+                     onCompactChoiceChange={handleCompactChoiceChange}
+                     onQuickQualityModeChange={handleQuickQualityModeChange}
+                     onConfigChange={handleConfigChange}
+                     onCompactDownload={handleCompactDownload}
+                     onExpandedDownload={handleExpandedDownload}
                   />
                 );
               })}
@@ -383,7 +417,7 @@ export default function App() {
 }
 
 function createSuccessCard(index: number, url: string, metadata: MediaMetadata): SuccessMediaCard {
-  const compactChoices = getCompactChoices(metadata);
+  const compactChoices = getCompactChoices(metadata, "quality");
 
   return {
     state: "success",
@@ -391,6 +425,7 @@ function createSuccessCard(index: number, url: string, metadata: MediaMetadata):
     url,
     metadata,
     compactChoiceId: compactChoices[0]?.id ?? "",
+    quickQualityMode: "quality",
     config: createInitialExpandedConfig(metadata),
     download: { status: "idle" },
   };

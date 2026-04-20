@@ -2,11 +2,12 @@ import * as React from "react";
 import { ErrorCard } from "@/components/media/error-card";
 import { MediaCard } from "@/components/media/media-card";
 import { PendingCard } from "@/components/media/pending-card";
-import type { ExpandedConfig, MediaCard as MediaCardRecord, SuccessMediaCard } from "@/lib/media";
+import type { ExpandedConfig, MediaCard as MediaCardRecord, QuickQualityMode, SuccessMediaCard } from "@/lib/media";
 
 interface MediaCardSlotProps {
   card: MediaCardRecord;
   onCompactChoiceChange: (index: number, compactChoiceId: string) => void;
+  onQuickQualityModeChange: (index: number, quickQualityMode: QuickQualityMode) => void;
   onConfigChange: (index: number, updater: (current: ExpandedConfig) => ExpandedConfig) => void;
   onCompactDownload: (index: number) => void | Promise<void>;
   onExpandedDownload: (index: number) => void | Promise<void>;
@@ -17,6 +18,7 @@ type SlotPhase = "steady" | "exiting-pending";
 export function MediaCardSlot({
   card,
   onCompactChoiceChange,
+  onQuickQualityModeChange,
   onConfigChange,
   onCompactDownload,
   onExpandedDownload,
@@ -84,6 +86,7 @@ export function MediaCardSlot({
       className={enteringSuccess ? "animate-resolve-content-in" : undefined}
       card={successCard}
       onCompactChoiceChange={(value) => onCompactChoiceChange(successCard.index, value)}
+      onQuickQualityModeChange={(value) => onQuickQualityModeChange(successCard.index, value)}
       onConfigChange={(updater) => onConfigChange(successCard.index, updater)}
       onCompactDownload={() => void onCompactDownload(successCard.index)}
       onExpandedDownload={() => void onExpandedDownload(successCard.index)}

@@ -2,14 +2,17 @@ import { describe, expect, it } from "vitest";
 import {
   buildCompactDownloadRequest,
   buildExpandedDownloadRequest,
+  createInitialExpandedConfig,
   coerceExpandedConfig,
   describeCompactSelection,
   describeSelection,
+  getCompactChoices,
   getAudioCodecOptions,
   getCompatibleContainersForConfig,
   getSourceCodecsForConfig,
   getVideoCodecOptions,
   normalizeUrlInput,
+  syncExpandedConfigToCompactChoice,
   type ExpandedConfig,
   type MediaMetadata,
 } from "@/lib/media";
@@ -139,6 +142,22 @@ describe("normalizeUrlInput", () => {
 });
 
 describe("download request builders", () => {
+  it("excludes muxed video formats from quick quality choices", () => {
+    expect(getCompactChoices(sampleMetadata, "quality").map((choice) => choice.id)).toEqual(["video:720p"]);
+  });
+
+  it("prefers the highest bitrate candidate in quick quality mode", () => {
+    const [choice] = getCompactChoices(sampleMetadata, "quality");
+
+    expect(choice?.preferredFormat.format_id).toBe("136");
+  });
+
+  it("prefers the lowest bitrate candidate in quick size mode", () => {
+    const [choice] = getCompactChoices(sampleMetadata, "size");
+
+    expect(choice?.preferredFormat.format_id).toBe("247");
+  });
+
   it("builds compact payload with best audio attached for separate streams", () => {
     const request = buildCompactDownloadRequest(
       sampleMetadata.original_url,
@@ -150,6 +169,96 @@ describe("download request builders", () => {
       url: sampleMetadata.original_url,
       format_id: "136+251",
     });
+  });
+
+  it("builds compact payload with the smallest bitrate candidate in size mode", () => {
+    const request = buildCompactDownloadRequest(
+      sampleMetadata.original_url,
+      sampleMetadata,
+      "video:720p",
+      "size",
+    );
+
+    expect(request).toEqual({
+      url: sampleMetadata.original_url,
+      format_id: "247+251",
+    });
+  });
+
+  it("syncs output config to the quick quality candidate when mode changes", () => {
+    const qualityConfig = syncExpandedConfigToCompactChoice(
+      sampleMetadata,
+      createInitialExpandedConfig(sampleMetadata),
+      "video:720p",
+      "quality",
+    );
+    const sizeConfig = syncExpandedConfigToCompactChoice(
+      sampleMetadata,
+      createInitialExpandedConfig(sampleMetadata),
+      "video:720p",
+      "size",
+    );
+
+    expect(qualityConfig.videoFormatId).toBe("136");
+    expect(qualityConfig.audioFormatId).toBe("251");
+    expect(qualityConfig.container).toBe("mp4");
+
+    expect(sizeConfig.videoFormatId).toBe("247");
+    expect(sizeConfig.audioFormatId).toBe("251");
+    expect(sizeConfig.container).toBe("webm");
+  });
+
+  it("resets target codecs to the new source codecs when quick mode changes in convert mode", () => {
+    const initialConfig = coerceExpandedConfig(sampleMetadata, {
+      isExpanded: true,
+      overrideQuickQuality: false,
+      includeVideo: true,
+      includeAudio: true,
+      videoFormatId: "136",
+      audioFormatId: "251",
+      mode: "convert",
+      container: "mkv",
+      vcodec: "h264",
+      acodec: "opus",
+    });
+
+    const sizeConfig = syncExpandedConfigToCompactChoice(
+      sampleMetadata,
+      initialConfig,
+      "video:720p",
+      "size",
+    );
+
+    expect(sizeConfig.videoFormatId).toBe("247");
+    expect(sizeConfig.container).toBe("webm");
+    expect(sizeConfig.vcodec).toBe("vp9");
+    expect(sizeConfig.acodec).toBe("opus");
+  });
+
+  it("resets container to the new default when quick mode changes", () => {
+    const initialConfig = coerceExpandedConfig(sampleMetadata, {
+      isExpanded: true,
+      overrideQuickQuality: false,
+      includeVideo: true,
+      includeAudio: true,
+      videoFormatId: "247",
+      audioFormatId: "251",
+      mode: "convert",
+      container: "webm",
+      vcodec: "vp9",
+      acodec: "opus",
+    });
+
+    const qualityConfig = syncExpandedConfigToCompactChoice(
+      sampleMetadata,
+      initialConfig,
+      "video:720p",
+      "quality",
+    );
+
+    expect(qualityConfig.videoFormatId).toBe("136");
+    expect(qualityConfig.container).toBe("mp4");
+    expect(qualityConfig.vcodec).toBe("h264");
   });
 
   it("builds expanded original payload with auto audio", () => {
@@ -343,6 +452,12 @@ describe("download request builders", () => {
     );
   });
 
+  it("formats compact summary using the size-mode candidate", () => {
+    expect(describeCompactSelection(sampleMetadata, "video:720p", "size")).toBe(
+      "720p VP9 | 160 kbps OPUS | WEBM | 49.5 MB",
+    );
+  });
+
   it("formats convert summary with target codecs", () => {
     const config = coerceExpandedConfig(sampleMetadata, {
       isExpanded: true,
@@ -399,7 +514,7 @@ describe("download request builders", () => {
     });
 
     expect(config.container).not.toBe("mp3");
-    expect(["mp4", "ogg", "opus", "mkv"]).toContain(config.container);
+    expect(["webm", "mp4", "ogg", "opus", "mkv"]).toContain(config.container);
   });
 
   it("keeps audio-only remux state valid when a muxed video format exists in background selection", () => {

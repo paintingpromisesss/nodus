@@ -27,6 +27,7 @@ import {
   getAudioOnlyFormats,
   getCompactChoices,
   getCompatibleContainersForConfig,
+  getDefaultContainerForConfig,
   getMediaBadgeLabel,
   getSourceCodecsForConfig,
   getVideoCodecOptions,
@@ -37,34 +38,42 @@ import {
   splitCompatibleContainers,
   type ExpandedConfig,
   type ExpandedMode,
+  type QuickQualityMode,
   type SuccessMediaCard,
 } from "@/lib/media";
 
 interface MediaCardProps {
   card: SuccessMediaCard;
   onCompactChoiceChange: (compactChoiceId: string) => void;
+  onQuickQualityModeChange: (quickQualityMode: QuickQualityMode) => void;
   onConfigChange: (updater: (current: ExpandedConfig) => ExpandedConfig) => void;
   onCompactDownload: () => void;
   onExpandedDownload: () => void;
   className?: string;
 }
 
+const EMPTY_SELECT_VALUE = "__empty__";
+
 export function MediaCard({
   card,
   onCompactChoiceChange,
+  onQuickQualityModeChange,
   onConfigChange,
   onCompactDownload,
   onExpandedDownload,
   className,
 }: MediaCardProps) {
   const { metadata } = card;
-  const compactChoices = getCompactChoices(metadata);
+  const compactChoices = getCompactChoices(metadata, card.quickQualityMode);
   const compactChoice = compactChoices.find((choice) => choice.id === card.compactChoiceId) ?? compactChoices[0] ?? null;
   const normalizedConfig = coerceExpandedConfig(metadata, card.config);
   const videoFormats = getVideoFormats(metadata);
   const videoOnlyFormats = videoFormats.filter(isVideoOnly);
   const muxedVideoFormats = videoFormats.filter(isMuxed);
   const audioFormats = getAudioOnlyFormats(metadata);
+  const selectedAudioValue = normalizedConfig.audioFormatId === "auto"
+    ? (audioFormats[0]?.format_id ?? EMPTY_SELECT_VALUE)
+    : normalizedConfig.audioFormatId;
   const activeVideo = videoFormats.find((format) => format.format_id === normalizedConfig.videoFormatId) ?? videoFormats[0] ?? null;
   const allowsManualAudio = Boolean(activeVideo ? !hasAudio(activeVideo) : true);
   const muxedAudioLabel = activeVideo && hasAudio(activeVideo) ? buildMuxedFormatLabel(activeVideo).audioLine : null;
@@ -79,8 +88,15 @@ export function MediaCard({
   const hasAudioStream = normalizedConfig.includeAudio
     && (hasVideoStream ? hasAudio(activeVideo!) || audioFormats.length > 0 : audioFormats.length > 0);
   const containerOptions = hasSelectedSources ? getCompatibleContainersForConfig(metadata, normalizedConfig) : [];
+  const defaultContainer = hasSelectedSources ? getDefaultContainerForConfig(metadata, normalizedConfig) : null;
   const { audioOnly: audioOnlyContainers, videoCapable: videoCapableContainers } =
     splitCompatibleContainers(containerOptions);
+  const orderedAudioOnlyContainers = defaultContainer && audioOnlyContainers.includes(defaultContainer)
+    ? [defaultContainer, ...audioOnlyContainers.filter((container) => container !== defaultContainer)]
+    : audioOnlyContainers;
+  const orderedVideoCapableContainers = defaultContainer && videoCapableContainers.includes(defaultContainer)
+    ? [defaultContainer, ...videoCapableContainers.filter((container) => container !== defaultContainer)]
+    : videoCapableContainers;
   const sourceCodecs = getSourceCodecsForConfig(metadata, normalizedConfig);
   const videoCodecOptions = normalizedConfig.container
     ? getVideoCodecOptions(normalizedConfig.container, hasVideoStream, sourceCodecs.video)
@@ -89,7 +105,7 @@ export function MediaCard({
     ? getAudioCodecOptions(normalizedConfig.container, hasAudioStream, sourceCodecs.audio)
     : [];
   const hasDownloads = compactChoices.length > 0;
-  const compactSummary = compactChoice ? describeCompactSelection(metadata, compactChoice.id) : "No format options";
+  const compactSummary = compactChoice ? describeCompactSelection(metadata, compactChoice.id, card.quickQualityMode) : "No format options";
   const isQuickQualityOverrideEnabled = normalizedConfig.overrideQuickQuality;
   const isInputSectionDisabled = !isQuickQualityOverrideEnabled;
   const canChooseContainer =
@@ -111,6 +127,8 @@ export function MediaCard({
   const thumbnail = metadata.thumbnail || "";
 
   const isExpandedDownloadDisabled = !hasDownloads || card.download.status === "pending" || !hasSelectedSources;
+  const renderContainerLabel = (container: string) =>
+    container === defaultContainer ? `${container.toUpperCase()} (default)` : container.toUpperCase();
 
   return (
     <Card className={cn("nodus-surface relative overflow-hidden animate-fade-up", className)}>
@@ -163,7 +181,7 @@ export function MediaCard({
 
       <Separator className="bg-white/[0.05]" />
 
-      <div className="grid gap-3 p-5 lg:grid-cols-[3.25rem,15rem,minmax(0,1fr),auto] lg:items-center lg:p-6">
+      <div className="grid gap-3 p-5 lg:grid-cols-[3.25rem,minmax(0,23rem),minmax(0,1fr),auto] lg:items-center lg:p-6">
         <Button
           variant="secondary"
           size="icon"
@@ -178,9 +196,9 @@ export function MediaCard({
           {normalizedConfig.isExpanded ? <ChevronUp className="size-5" /> : <ChevronDown className="size-5" />}
         </Button>
 
-        <div className="transition-opacity duration-200">
+        <div className="grid gap-2 transition-opacity duration-200 lg:grid-cols-[minmax(0,1fr),auto] lg:items-center">
           <Select
-            value={compactChoice?.id}
+            value={compactChoice?.id ?? EMPTY_SELECT_VALUE}
             onValueChange={(value) => onCompactChoiceChange(value)}
             disabled={isQuickQualityDisabled}
           >
@@ -198,6 +216,45 @@ export function MediaCard({
               </SelectGroup>
             </SelectContent>
           </Select>
+
+          <button
+            type="button"
+            role="switch"
+            aria-checked={card.quickQualityMode === "size"}
+            aria-label="Toggle quick quality mode"
+            onClick={() => onQuickQualityModeChange(card.quickQualityMode === "quality" ? "size" : "quality")}
+            disabled={isQuickQualityDisabled}
+            className={cn(
+              "relative flex h-12 w-full items-center rounded-2xl border border-[color:var(--line)] bg-black/20 p-1 transition-colors lg:w-[12.5rem]",
+              isQuickQualityDisabled
+                ? "cursor-not-allowed opacity-50"
+                : "hover:border-[color:var(--line-strong)]",
+            )}
+          >
+            <span
+              className={cn(
+                "absolute inset-y-1 w-[calc(50%-0.25rem)] rounded-[calc(theme(borderRadius.2xl)-0.25rem)] border border-[color:var(--line-strong)] bg-[rgba(223,192,143,0.14)] transition-transform duration-200",
+                card.quickQualityMode === "quality" ? "translate-x-0" : "translate-x-full",
+              )}
+              aria-hidden="true"
+            />
+            <span
+              className={cn(
+                "relative z-10 flex-1 px-2 text-center text-[11px] uppercase leading-tight tracking-[0.06em] transition-colors",
+                card.quickQualityMode === "quality" ? "text-foreground" : "text-muted-foreground",
+              )}
+            >
+              Best Quality
+            </span>
+            <span
+              className={cn(
+                "relative z-10 flex-1 px-2 text-center text-[11px] uppercase leading-tight tracking-[0.06em] transition-colors",
+                card.quickQualityMode === "size" ? "text-foreground" : "text-muted-foreground",
+              )}
+            >
+              Smallest Size
+            </span>
+          </button>
         </div>
 
         <div className="flex items-center justify-end gap-3">
@@ -326,7 +383,7 @@ export function MediaCard({
                           Source video
                         </button>
                         <Select
-                          value={normalizedConfig.videoFormatId ?? undefined}
+                          value={normalizedConfig.videoFormatId ?? EMPTY_SELECT_VALUE}
                         onValueChange={(value) =>
                           onConfigChange((current) =>
                             coerceExpandedConfig(metadata, {
@@ -419,12 +476,12 @@ export function MediaCard({
                         </div>
                       ) : (
                         <Select
-                          value={normalizedConfig.audioFormatId === "auto" ? "auto" : normalizedConfig.audioFormatId}
+                          value={selectedAudioValue}
                           onValueChange={(value) =>
                             onConfigChange((current) =>
                               coerceExpandedConfig(metadata, {
                                 ...current,
-                                audioFormatId: value === "auto" ? "auto" : value,
+                                audioFormatId: value,
                                 acodec: null,
                               }),
                             )
@@ -437,7 +494,6 @@ export function MediaCard({
                           <SelectContent>
                             <SelectGroup>
                               <SelectLabel>Audio-only formats</SelectLabel>
-                              <SelectItem value="auto">Auto | best available audio</SelectItem>
                               {audioFormats.map((format) => (
                                 <SelectItem key={format.format_id} value={format.format_id}>
                                   {buildAudioFormatLabel(format)}
@@ -505,7 +561,7 @@ export function MediaCard({
                   <div className="grid gap-2">
                     <label className="text-sm font-medium text-muted-foreground">Container</label>
                     <Select
-                      value={normalizedConfig.container ?? undefined}
+                      value={normalizedConfig.container ?? EMPTY_SELECT_VALUE}
                       onValueChange={(value) =>
                         onConfigChange((current) =>
                           coerceExpandedConfig(metadata, {
@@ -522,29 +578,29 @@ export function MediaCard({
                         <SelectValue placeholder="Choose container" />
                       </SelectTrigger>
                       <SelectContent>
-                        {audioOnlyContainers.length > 0 ? (
-                          <SelectGroup>
-                            <SelectLabel>Audio containers</SelectLabel>
-                            {audioOnlyContainers.map((container) => (
-                              <SelectItem key={container} value={container}>
-                                {container.toUpperCase()}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        ) : null}
+                         {orderedAudioOnlyContainers.length > 0 ? (
+                           <SelectGroup>
+                             <SelectLabel>Audio containers</SelectLabel>
+                             {orderedAudioOnlyContainers.map((container) => (
+                               <SelectItem key={container} value={container}>
+                                 {renderContainerLabel(container)}
+                               </SelectItem>
+                             ))}
+                           </SelectGroup>
+                         ) : null}
 
-                        {audioOnlyContainers.length > 0 && videoCapableContainers.length > 0 ? <SelectSeparator /> : null}
+                         {orderedAudioOnlyContainers.length > 0 && orderedVideoCapableContainers.length > 0 ? <SelectSeparator /> : null}
 
-                        {videoCapableContainers.length > 0 ? (
-                          <SelectGroup>
-                            <SelectLabel>
-                              {audioOnlyContainers.length > 0 ? "Video containers" : "Compatible containers"}
-                            </SelectLabel>
-                            {videoCapableContainers.map((container) => (
-                              <SelectItem key={container} value={container}>
-                                {container.toUpperCase()}
-                              </SelectItem>
-                            ))}
+                         {orderedVideoCapableContainers.length > 0 ? (
+                           <SelectGroup>
+                             <SelectLabel>
+                               {orderedAudioOnlyContainers.length > 0 ? "Video containers" : "Compatible containers"}
+                             </SelectLabel>
+                             {orderedVideoCapableContainers.map((container) => (
+                               <SelectItem key={container} value={container}>
+                                 {renderContainerLabel(container)}
+                               </SelectItem>
+                             ))}
                           </SelectGroup>
                         ) : null}
                       </SelectContent>
@@ -555,7 +611,7 @@ export function MediaCard({
                     <div className={cn("grid gap-2 transition-opacity", !normalizedConfig.includeVideo && "opacity-60")}>
                       <label className="text-sm font-medium text-muted-foreground">Target video codec</label>
                       <Select
-                        value={normalizedConfig.vcodec ?? undefined}
+                        value={normalizedConfig.vcodec ?? EMPTY_SELECT_VALUE}
                         onValueChange={(value) =>
                           onConfigChange((current) =>
                             coerceExpandedConfig(metadata, {
@@ -585,7 +641,7 @@ export function MediaCard({
                     <div className={cn("grid gap-2 transition-opacity", !normalizedConfig.includeAudio && "opacity-60")}>
                       <label className="text-sm font-medium text-muted-foreground">Target audio codec</label>
                       <Select
-                        value={normalizedConfig.acodec ?? undefined}
+                        value={normalizedConfig.acodec ?? EMPTY_SELECT_VALUE}
                         onValueChange={(value) =>
                           onConfigChange((current) =>
                             coerceExpandedConfig(metadata, {
