@@ -9,6 +9,7 @@ import {
   getCompactChoices,
   getAudioCodecOptions,
   getCompatibleContainersForConfig,
+  getOriginalContainerDisplay,
   getSourceCodecsForConfig,
   getVideoCodecOptions,
   normalizeUrlInput,
@@ -158,6 +159,19 @@ describe("download request builders", () => {
     expect(choice?.preferredFormat.format_id).toBe("247");
   });
 
+  it("uses muxed formats in quick compatibility mode", () => {
+    expect(getCompactChoices(sampleMetadata, "compatibility").map((choice) => choice.id)).toEqual(["video:360p"]);
+  });
+
+  it("returns no quick compatibility choices without muxed formats", () => {
+    const metadataWithoutMuxed = {
+      ...sampleMetadata,
+      formats: sampleMetadata.formats.filter((format) => format.format_id !== "18"),
+    };
+
+    expect(getCompactChoices(metadataWithoutMuxed, "compatibility")).toEqual([]);
+  });
+
   it("builds compact payload with best audio attached for separate streams", () => {
     const request = buildCompactDownloadRequest(
       sampleMetadata.original_url,
@@ -182,6 +196,55 @@ describe("download request builders", () => {
     expect(request).toEqual({
       url: sampleMetadata.original_url,
       format_id: "247+251",
+    });
+  });
+
+  it("builds compact payload from one muxed format in compatibility mode", () => {
+    const request = buildCompactDownloadRequest(
+      sampleMetadata.original_url,
+      sampleMetadata,
+      "video:360p",
+      "compatibility",
+    );
+
+    expect(request).toEqual({
+      url: sampleMetadata.original_url,
+      format_id: "18",
+    });
+  });
+
+  it("applies output conversion to a quick quality choice without enabling manual input override", () => {
+    const outputConfig = coerceExpandedConfig(sampleMetadata, {
+      isExpanded: true,
+      overrideQuickQuality: false,
+      includeVideo: true,
+      includeAudio: true,
+      videoFormatId: "136",
+      audioFormatId: "251",
+      mode: "convert",
+      container: "mp4",
+      vcodec: "h264",
+      acodec: "aac",
+    });
+
+    expect(outputConfig.overrideQuickQuality).toBe(false);
+    expect(describeCompactSelection(sampleMetadata, "video:720p", "quality", outputConfig)).toBe(
+      "720p H264 | 160 kbps AAC | MP4 | 51.4 MB",
+    );
+    expect(buildCompactDownloadRequest(
+      sampleMetadata.original_url,
+      sampleMetadata,
+      "video:720p",
+      "quality",
+      outputConfig,
+    )).toEqual({
+      url: sampleMetadata.original_url,
+      format_id: "136+251",
+      options: {
+        container: "mp4",
+        vcodec: "h264",
+        acodec: "aac",
+      },
     });
   });
 
@@ -230,7 +293,7 @@ describe("download request builders", () => {
     );
 
     expect(sizeConfig.videoFormatId).toBe("247");
-    expect(sizeConfig.container).toBe("webm");
+    expect(sizeConfig.container).toBe("mp4");
     expect(sizeConfig.vcodec).toBe("vp9");
     expect(sizeConfig.acodec).toBe("opus");
   });
@@ -279,6 +342,46 @@ describe("download request builders", () => {
     expect(request).toEqual({
       url: sampleMetadata.original_url,
       format_id: "136+251",
+    });
+  });
+
+  it("shows all compatible original containers for separate video and audio streams without a default", () => {
+    const display = getOriginalContainerDisplay(sampleMetadata, {
+      isExpanded: true,
+      overrideQuickQuality: true,
+      includeVideo: true,
+      includeAudio: true,
+      videoFormatId: "247",
+      audioFormatId: "140",
+      mode: "original",
+      container: null,
+      vcodec: null,
+      acodec: null,
+    });
+
+    expect(display).toEqual({
+      containers: ["mp4", "mkv"],
+      showDefault: false,
+    });
+  });
+
+  it("keeps a single default original container for muxed streams", () => {
+    const display = getOriginalContainerDisplay(sampleMetadata, {
+      isExpanded: true,
+      overrideQuickQuality: true,
+      includeVideo: true,
+      includeAudio: true,
+      videoFormatId: "18",
+      audioFormatId: "auto",
+      mode: "original",
+      container: null,
+      vcodec: null,
+      acodec: null,
+    });
+
+    expect(display).toEqual({
+      containers: ["mp4"],
+      showDefault: true,
     });
   });
 
@@ -399,6 +502,68 @@ describe("download request builders", () => {
     expect(remuxConfig.acodec).toBe("opus");
   });
 
+  it("keeps compatible remux output selections when switching to convert", () => {
+    const remuxConfig = coerceExpandedConfig(sampleMetadata, {
+      isExpanded: true,
+      overrideQuickQuality: false,
+      includeVideo: true,
+      includeAudio: true,
+      videoFormatId: "247",
+      audioFormatId: "140",
+      mode: "remux",
+      container: "mp4",
+      vcodec: null,
+      acodec: null,
+    });
+
+    expect(remuxConfig.container).toBe("mp4");
+    expect(remuxConfig.vcodec).toBe("vp9");
+    expect(remuxConfig.acodec).toBe("aac");
+
+    const convertConfig = coerceExpandedConfig(sampleMetadata, {
+      ...remuxConfig,
+      mode: "convert",
+    });
+
+    expect(convertConfig.overrideQuickQuality).toBe(false);
+    expect(convertConfig.container).toBe("mp4");
+    expect(convertConfig.vcodec).toBe("vp9");
+    expect(convertConfig.acodec).toBe("aac");
+  });
+
+  it("defaults to mp4 when switching from original source ext to convert", () => {
+    const originalConfig = coerceExpandedConfig(sampleMetadata, {
+      isExpanded: true,
+      overrideQuickQuality: true,
+      includeVideo: true,
+      includeAudio: true,
+      videoFormatId: "247",
+      audioFormatId: "140",
+      mode: "original",
+      container: null,
+      vcodec: null,
+      acodec: null,
+    });
+
+    expect(originalConfig.container).toBe("webm");
+    expect(originalConfig.acodec).toBe("aac");
+
+    const convertConfig = coerceExpandedConfig(sampleMetadata, {
+      ...originalConfig,
+      mode: "convert",
+      container: null,
+      vcodec: null,
+      acodec: null,
+    });
+
+    expect(convertConfig.container).toBe("mp4");
+    expect(convertConfig.vcodec).toBe("vp9");
+    expect(convertConfig.acodec).toBe("aac");
+    expect(describeSelection(sampleMetadata, convertConfig)).toBe(
+      "720p VP9 | 128 kbps AAC | MP4 | 49.0 MB",
+    );
+  });
+
   it("uses the real output container and source codecs in original mode instead of stale convert state", () => {
     const originalConfig = coerceExpandedConfig(sampleMetadata, {
       isExpanded: true,
@@ -416,6 +581,28 @@ describe("download request builders", () => {
     expect(originalConfig.container).toBe("webm");
     expect(originalConfig.vcodec).toBe("vp9");
     expect(originalConfig.acodec).toBe("opus");
+  });
+
+  it("uses source video ext for original mode even when source codecs are mp4-compatible", () => {
+    const originalConfig = coerceExpandedConfig(sampleMetadata, {
+      isExpanded: true,
+      overrideQuickQuality: true,
+      includeVideo: true,
+      includeAudio: true,
+      videoFormatId: "247",
+      audioFormatId: "140",
+      mode: "original",
+      container: "webm",
+      vcodec: "vp9",
+      acodec: "opus",
+    });
+
+    expect(originalConfig.container).toBe("webm");
+    expect(originalConfig.vcodec).toBe("vp9");
+    expect(originalConfig.acodec).toBe("aac");
+    expect(describeSelection(sampleMetadata, originalConfig)).toBe(
+      "720p VP9 | 128 kbps AAC | WEBM | 49.0 MB",
+    );
   });
 
   it("defaults back to source copy codecs when convert container becomes compatible again", () => {

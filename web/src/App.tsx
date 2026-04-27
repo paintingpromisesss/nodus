@@ -11,6 +11,7 @@ import { downloadMedia, fetchHealth, streamMetadataBatch, triggerBlobDownload } 
 import {
   buildCompactDownloadRequest,
   buildExpandedDownloadRequest,
+  coerceExpandedConfig,
   createInitialExpandedConfig,
   getCompactChoices,
   normalizeUrlInput,
@@ -174,6 +175,10 @@ export default function App() {
   function handleQuickQualityModeChange(index: number, quickQualityMode: QuickQualityMode) {
     updateSuccessCard(index, (card) => {
       const compactChoices = getCompactChoices(card.metadata, quickQualityMode);
+      if (compactChoices.length === 0) {
+        return card;
+      }
+
       const hasCurrentChoice = compactChoices.some((choice) => choice.id === card.compactChoiceId);
 
       return {
@@ -196,13 +201,7 @@ export default function App() {
   function handleConfigChange(index: number, updater: (current: ExpandedConfig) => ExpandedConfig) {
     updateSuccessCard(index, (card) => ({
       ...card,
-      config: (() => {
-        const nextConfig = updater(card.config);
-
-        return nextConfig.overrideQuickQuality
-          ? nextConfig
-          : syncExpandedConfigToCompactChoice(card.metadata, nextConfig, card.compactChoiceId, card.quickQualityMode);
-      })(),
+      config: coerceExpandedConfig(card.metadata, updater(card.config)),
       download: { status: "idle" },
     }));
   }
@@ -219,7 +218,13 @@ export default function App() {
     }));
 
     try {
-      const request = buildCompactDownloadRequest(card.url, card.metadata, card.compactChoiceId, card.quickQualityMode);
+      const request = buildCompactDownloadRequest(
+        card.url,
+        card.metadata,
+        card.compactChoiceId,
+        card.quickQualityMode,
+        card.config,
+      );
       const result = await downloadMedia(request);
       triggerBlobDownload(result.blob, result.filename);
 
