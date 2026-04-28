@@ -7,8 +7,8 @@ import (
 	"syscall"
 
 	"github.com/gofiber/fiber/v3"
-	"github.com/paintingpromisesss/nodus-backend/internal/config"
-	"github.com/paintingpromisesss/nodus-backend/internal/ytdlp"
+	"github.com/paintingpromisesss/nodus/internal/config"
+	"github.com/paintingpromisesss/nodus/internal/ytdlp"
 	"go.uber.org/zap"
 )
 

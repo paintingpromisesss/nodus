@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/paintingpromisesss/nodus-backend/internal/ffmpeg"
+	"github.com/paintingpromisesss/nodus/internal/ffmpeg"
 )
 
 func detectJSRuntimeSpec(enabled bool) string {

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/paintingpromisesss/nodus-backend/internal/ffmpeg"
+	"github.com/paintingpromisesss/nodus/internal/ffmpeg"
 )
 
 type DownloadResult struct {

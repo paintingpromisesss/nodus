@@ -4,11 +4,11 @@ import (
 	"context"
 	"log"
 
-	"github.com/paintingpromisesss/nodus-backend/internal/config"
-	"github.com/paintingpromisesss/nodus-backend/internal/ffmpeg"
-	"github.com/paintingpromisesss/nodus-backend/internal/logger"
-	"github.com/paintingpromisesss/nodus-backend/internal/server"
-	"github.com/paintingpromisesss/nodus-backend/internal/ytdlp"
+	"github.com/paintingpromisesss/nodus/internal/config"
+	"github.com/paintingpromisesss/nodus/internal/ffmpeg"
+	"github.com/paintingpromisesss/nodus/internal/logger"
+	"github.com/paintingpromisesss/nodus/internal/server"
+	"github.com/paintingpromisesss/nodus/internal/ytdlp"
 )
 
 func main() {

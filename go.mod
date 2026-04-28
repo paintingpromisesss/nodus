@@ -1,4 +1,4 @@
-module github.com/paintingpromisesss/nodus-backend
+module github.com/paintingpromisesss/nodus
 
 go 1.25.0
 

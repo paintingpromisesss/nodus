@@ -9,8 +9,8 @@ import (
 	"os"
 
 	"github.com/gofiber/fiber/v3"
-	"github.com/paintingpromisesss/nodus-backend/internal/server/dto"
-	"github.com/paintingpromisesss/nodus-backend/internal/ytdlp"
+	"github.com/paintingpromisesss/nodus/internal/server/dto"
+	"github.com/paintingpromisesss/nodus/internal/ytdlp"
 )
 
 func (s *Server) handleHealth(c fiber.Ctx) error {
