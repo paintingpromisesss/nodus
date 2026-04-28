@@ -898,4 +898,31 @@ describe("download request builders", () => {
 
     expect(config.overrideQuickQuality).toBe(true);
   });
+
+  it("keeps display helpers safe when no source streams are selected", () => {
+    const config = coerceExpandedConfig(sampleMetadata, {
+      isExpanded: true,
+      overrideQuickQuality: true,
+      includeVideo: false,
+      includeAudio: false,
+      videoFormatId: "136",
+      audioFormatId: "251",
+      mode: "original",
+      container: null,
+      vcodec: null,
+      acodec: null,
+    });
+
+    expect(config.includeVideo).toBe(false);
+    expect(config.includeAudio).toBe(false);
+    expect(getCompatibleContainersForConfig(sampleMetadata, config)).toEqual([]);
+    expect(getOriginalContainerDisplay(sampleMetadata, config)).toEqual({
+      containers: [],
+      showDefault: false,
+    });
+    expect(getSourceCodecsForConfig(sampleMetadata, config)).toEqual({
+      video: null,
+      audio: null,
+    });
+  });
 });

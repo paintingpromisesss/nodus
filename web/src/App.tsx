@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { downloadMedia, fetchHealth, streamMetadataBatch, triggerBlobDownload } from "@/lib/api";
+import { DEFAULT_LANGUAGE, LANGUAGES, LANGUAGE_LABELS, isLanguage, t, type Language } from "@/lib/i18n";
 import {
   buildCompactDownloadRequest,
   buildExpandedDownloadRequest,
@@ -23,8 +24,10 @@ import {
   type SuccessMediaCard,
 } from "@/lib/media";
 
+const LANGUAGE_STORAGE_KEY = "nodus.language";
 
 export default function App() {
+  const [language, setLanguage] = React.useState<Language>(getInitialLanguage);
   const [input, setInput] = React.useState("");
   const [invalidLines, setInvalidLines] = React.useState<string[]>([]);
   const [cards, setCards] = React.useState<MediaCardRecord[]>([]);
@@ -35,6 +38,11 @@ export default function App() {
   React.useEffect(() => {
     cardsRef.current = cards;
   }, [cards]);
+
+  React.useEffect(() => {
+    window.localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
+    document.documentElement.lang = language;
+  }, [language]);
 
   React.useEffect(() => {
     return () => {
@@ -92,15 +100,15 @@ export default function App() {
         return;
       }
 
-      setBatchFatal(error instanceof Error ? error.message : "Nodus could not finish reading metadata from the backend.");
+      setBatchFatal(error instanceof Error ? error.message : t(language, "metadataStreamError"));
     },
   });
 
   const healthLabel = healthQuery.isSuccess
-    ? "Service ready"
+    ? t(language, "serviceReady")
     : healthQuery.isFetching
-      ? "Checking service"
-      : "Service unavailable";
+      ? t(language, "serviceChecking")
+      : t(language, "serviceUnavailable");
 
   const pendingCount = cards.filter((card) => card.state === "pending").length;
   const successfulCount = cards.filter((card) => card.state === "success").length;
@@ -237,7 +245,7 @@ export default function App() {
         ...current,
         download: {
           status: "error",
-          message: error instanceof Error ? error.message : "Nodus could not prepare this download.",
+          message: error instanceof Error ? error.message : t(language, "downloadError"),
         },
       }));
     }
@@ -268,7 +276,7 @@ export default function App() {
         ...current,
         download: {
           status: "error",
-          message: error instanceof Error ? error.message : "Nodus could not prepare this download.",
+          message: error instanceof Error ? error.message : t(language, "downloadError"),
         },
       }));
     }
@@ -276,30 +284,51 @@ export default function App() {
 
   return (
     <main className="relative min-h-screen overflow-x-hidden">
+      <div
+        className="fixed right-4 top-4 z-50 flex rounded-[1.05rem] border border-[color:var(--line)] bg-black/45 p-1 shadow-nodus backdrop-blur-xl"
+        aria-label={t(language, "languageAria")}
+      >
+        {LANGUAGES.map((option) => (
+          <button
+            key={option}
+            type="button"
+            onClick={() => setLanguage(option)}
+            aria-pressed={language === option}
+            className={[
+              "h-9 min-w-10 rounded-[0.8rem] px-3 text-xs font-semibold transition-colors",
+              language === option
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-white/8 hover:text-foreground",
+            ].join(" ")}
+          >
+            {LANGUAGE_LABELS[option]}
+          </button>
+        ))}
+      </div>
+
       <div className="mx-auto flex w-full max-w-[1120px] flex-col gap-6 px-4 py-8 md:px-6 md:py-10">
-        <section className="nodus-surface px-5 py-6 md:px-8 md:py-8">
+        <section className="nodus-surface relative px-5 pb-6 pt-16 md:px-8 md:pb-8 md:pt-8">
+          <Badge variant="outline" className="absolute right-3 top-3 gap-2 px-3 py-1.5 text-[0.68rem] md:right-4 md:top-4">
+            <span
+              className={[
+                "size-2 rounded-full",
+                healthQuery.isSuccess ? "bg-emerald-400" : healthQuery.isFetching ? "bg-amber-300" : "bg-red-400",
+              ].join(" ")}
+            />
+            {healthLabel}
+          </Badge>
+
           <div className="mx-auto flex max-w-4xl flex-col gap-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <div className="space-y-2">
-                <p className="section-kicker">Nodus downloader</p>
+                <p className="section-kicker">{t(language, "downloaderKicker")}</p>
                 <h1 className="hero-title text-balance text-4xl sm:text-5xl md:text-6xl lg:text-[4.5rem]">
-                  Download media from shared links
+                  {t(language, "heroTitle")}
                 </h1>
                 <p className="max-w-2xl text-pretty text-base leading-7 text-muted-foreground md:text-lg">
-                  Paste video or audio URLs, let Nodus inspect the available streams, then download a ready file or choose
-                  the exact format, container, and codecs yourself.
+                  {t(language, "heroBody")}
                 </p>
               </div>
-
-              <Badge variant="outline" className="gap-2 px-4 py-2 text-[0.7rem]">
-                <span
-                  className={[
-                    "size-2 rounded-full",
-                    healthQuery.isSuccess ? "bg-emerald-400" : healthQuery.isFetching ? "bg-amber-300" : "bg-red-400",
-                  ].join(" ")}
-                />
-                {healthLabel}
-              </Badge>
             </div>
 
             <form className="grid gap-4" onSubmit={handleFetch}>
@@ -317,15 +346,15 @@ export default function App() {
                 <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                   <Badge variant="outline" className="gap-2">
                     <Globe2 className="size-3.5" />
-                    {cards.length} links
+                    {cards.length} {t(language, "links")}
                   </Badge>
                   <Badge variant="outline" className="gap-2">
                     <LoaderCircle className={pendingCount > 0 ? "size-3.5 animate-spin" : "size-3.5"} />
-                    {pendingCount} reading
+                    {pendingCount} {t(language, "reading")}
                   </Badge>
                   <Badge variant="outline" className="gap-2">
                     <Link2 className="size-3.5" />
-                    {successfulCount} ready
+                    {successfulCount} {t(language, "ready")}
                   </Badge>
                 </div>
 
@@ -333,12 +362,12 @@ export default function App() {
                   {fetchMutation.isPending ? (
                     <>
                       <LoaderCircle className="size-4 animate-spin" />
-                      Reading links
+                      {t(language, "readingLinks")}
                     </>
                   ) : (
                     <>
                       <Link2 className="size-4" />
-                      Analyze links
+                      {t(language, "analyzeLinks")}
                     </>
                   )}
                 </Button>
@@ -350,11 +379,11 @@ export default function App() {
         {invalidLines.length > 0 ? (
           <Alert variant="destructive" className="nodus-alert">
             <AlertCircle />
-            <AlertTitle>Some lines were skipped</AlertTitle>
+            <AlertTitle>{t(language, "invalidLinesTitle")}</AlertTitle>
             <AlertDescription>
               {invalidLines.length === 1
-                ? `This line is not a valid HTTP or HTTPS URL: ${invalidLines[0]}`
-                : `${invalidLines.length} lines were skipped because they are not valid HTTP or HTTPS URLs.`}
+                ? `${t(language, "invalidLinesOne")} ${invalidLines[0]}`
+                : `${invalidLines.length} ${t(language, "invalidLinesMany")}`}
             </AlertDescription>
           </Alert>
         ) : null}
@@ -362,7 +391,7 @@ export default function App() {
         {batchFatal ? (
           <Alert variant="destructive" className="nodus-alert">
             <AlertCircle />
-            <AlertTitle>The metadata stream stopped</AlertTitle>
+            <AlertTitle>{t(language, "metadataStreamStopped")}</AlertTitle>
             <AlertDescription>{batchFatal}</AlertDescription>
           </Alert>
         ) : null}
@@ -370,19 +399,19 @@ export default function App() {
         <section className="space-y-4">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div className="space-y-1">
-              <p className="section-kicker">Download queue</p>
-              <h2 className="font-display text-4xl tracking-[-0.04em] text-foreground md:text-5xl">Media ready to save</h2>
+              <p className="section-kicker">{t(language, "downloadQueue")}</p>
+              <h2 className="font-display text-4xl tracking-[-0.04em] text-foreground md:text-5xl">{t(language, "mediaReady")}</h2>
             </div>
 
             <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
               <Badge variant="outline" className="gap-2">
                 <Globe2 className="size-3.5" />
-                {cards.length} links
+                {cards.length} {t(language, "links")}
               </Badge>
               {pendingCount > 0 ? (
                 <Badge variant="outline" className="gap-2">
                   <LoaderCircle className="size-3.5 animate-spin" />
-                  {pendingCount} reading
+                  {pendingCount} {t(language, "reading")}
                 </Badge>
               ) : null}
             </div>
@@ -391,11 +420,10 @@ export default function App() {
           {cards.length === 0 ? (
             <Card className="nodus-surface flex min-h-[19rem] items-center justify-center px-6 py-10 text-center lg:min-h-[19rem]">
               <div className="mx-auto max-w-2xl space-y-3">
-                <p className="section-kicker">Waiting for links</p>
-                <h3 className="font-display text-4xl tracking-[-0.04em] text-foreground">Your downloads will appear here</h3>
+                <p className="section-kicker">{t(language, "queueEmptyKicker")}</p>
+                <h3 className="font-display text-4xl tracking-[-0.04em] text-foreground">{t(language, "queueEmptyTitle")}</h3>
                 <p className="text-base leading-7 text-muted-foreground">
-                  Add one link per line. Nodus keeps the queue in the same order, reads metadata in the background, and
-                  turns each valid URL into a download card with quick and advanced options.
+                  {t(language, "queueEmptyBody")}
                 </p>
               </div>
             </Card>
@@ -411,6 +439,7 @@ export default function App() {
                      onConfigChange={handleConfigChange}
                      onCompactDownload={handleCompactDownload}
                      onExpandedDownload={handleExpandedDownload}
+                     language={language}
                   />
                 );
               })}
@@ -420,6 +449,20 @@ export default function App() {
       </div>
     </main>
   );
+}
+
+function getInitialLanguage(): Language {
+  if (typeof window === "undefined") {
+    return DEFAULT_LANGUAGE;
+  }
+
+  const stored = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
+  if (isLanguage(stored)) {
+    return stored;
+  }
+
+  const browserLanguage = window.navigator.language.slice(0, 2);
+  return isLanguage(browserLanguage) ? browserLanguage : DEFAULT_LANGUAGE;
 }
 
 function createSuccessCard(index: number, url: string, metadata: MediaMetadata): SuccessMediaCard {

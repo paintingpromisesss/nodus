@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { t, type Language } from "@/lib/i18n";
 import { PlatformIcon, resolvePlatform } from "@/lib/platforms";
 import { cn } from "@/lib/utils";
 import {
@@ -51,6 +52,7 @@ interface MediaCardProps {
   onConfigChange: (updater: (current: ExpandedConfig) => ExpandedConfig) => void;
   onCompactDownload: () => void;
   onExpandedDownload: () => void;
+  language: Language;
   className?: string;
 }
 
@@ -63,11 +65,12 @@ export function MediaCard({
   onConfigChange,
   onCompactDownload,
   onExpandedDownload,
+  language,
   className,
 }: MediaCardProps) {
   const { metadata } = card;
-  const compactChoices = getCompactChoices(metadata, card.quickQualityMode);
-  const compatibilityChoices = getCompactChoices(metadata, "compatibility");
+  const compactChoices = getCompactChoices(metadata, card.quickQualityMode, language);
+  const compatibilityChoices = getCompactChoices(metadata, "compatibility", language);
   const compactChoice = compactChoices.find((choice) => choice.id === card.compactChoiceId) ?? compactChoices[0] ?? null;
   const normalizedConfig = coerceExpandedConfig(metadata, card.config);
   const videoFormats = getVideoFormats(metadata);
@@ -79,7 +82,7 @@ export function MediaCard({
     : normalizedConfig.audioFormatId;
   const activeVideo = videoFormats.find((format) => format.format_id === normalizedConfig.videoFormatId) ?? videoFormats[0] ?? null;
   const allowsManualAudio = Boolean(activeVideo ? !hasAudio(activeVideo) : true);
-  const muxedAudioLabel = activeVideo && hasAudio(activeVideo) ? buildMuxedFormatLabel(activeVideo).audioLine : null;
+  const muxedAudioLabel = activeVideo && hasAudio(activeVideo) ? buildMuxedFormatLabel(activeVideo, language).audioLine : null;
   const isVideoToggleLocked = Boolean(
     normalizedConfig.includeAudio && activeVideo && hasAudio(activeVideo) && audioFormats.length === 0,
   );
@@ -97,9 +100,9 @@ export function MediaCard({
       ? getDefaultContainerForConfig(metadata, normalizedConfig)
       : null;
   const originalContainerDisplay = hasSelectedSources ? getOriginalContainerDisplay(metadata, normalizedConfig) : null;
-  const originalContainerLabel = formatContainerDisplay(originalContainerDisplay);
+  const originalContainerLabel = formatContainerDisplay(originalContainerDisplay, { language });
   const formatContainerOptionLabel = (container: string) =>
-    `${container.toUpperCase()}${container === defaultContainer ? " (default)" : ""}`;
+    `${container.toUpperCase()}${container === defaultContainer ? ` (${t(language, "defaultSuffix")})` : ""}`;
   const { audioOnly: audioOnlyContainers, videoCapable: videoCapableContainers } =
     splitCompatibleContainers(containerOptions);
   const sourceCodecs = getSourceCodecsForConfig(metadata, normalizedConfig);
@@ -116,8 +119,8 @@ export function MediaCard({
   const hasDownloads = compactChoices.length > 0;
   const hasCompatibilityDownloads = compatibilityChoices.length > 0;
   const compactSummary = compactChoice
-    ? describeCompactSelection(metadata, compactChoice.id, card.quickQualityMode, normalizedConfig)
-    : "No downloadable formats found";
+    ? describeCompactSelection(metadata, compactChoice.id, card.quickQualityMode, normalizedConfig, language)
+    : t(language, "formatsMissing");
   const isQuickQualityOverrideEnabled = normalizedConfig.overrideQuickQuality;
   const isInputSectionDisabled = !isQuickQualityOverrideEnabled;
   const canChooseContainer =
@@ -128,15 +131,29 @@ export function MediaCard({
     normalizedConfig.includeAudio && normalizedConfig.mode === "convert" && audioCodecOptions.length > 0;
   const expandedSummary = hasDownloads
     ? hasSelectedSources
-      ? describeSelection(metadata, normalizedConfig)
-      : "Choose video, audio, or both"
-    : "No downloadable formats found";
+      ? describeSelection(metadata, normalizedConfig, language)
+      : t(language, "chooseVideoOrAudio")
+    : t(language, "formatsMissing");
   const isQuickQualityDisabled = isQuickQualityOverrideEnabled || !hasDownloads || card.download.status === "pending";
   const activeDownloadSummary = isQuickQualityOverrideEnabled ? expandedSummary : compactSummary;
-  const mediaBadge = getMediaBadgeLabel(metadata);
+  const mediaBadge = getMediaBadgeLabel(metadata, language);
   const sourceUrl = metadata.original_url || card.url;
   const platform = resolvePlatform(sourceUrl);
   const thumbnail = metadata.thumbnail || "";
+  const videoCodecDisplay = normalizedConfig.includeVideo
+    ? normalizedConfig.vcodec
+      ? normalizedConfig.vcodec === sourceCodecs.video
+        ? `Copy (${normalizedConfig.vcodec.toUpperCase()})`
+        : normalizedConfig.vcodec.toUpperCase()
+      : t(language, "noVideoSelected")
+    : t(language, "noVideoSelected");
+  const audioCodecDisplay = normalizedConfig.includeAudio
+    ? normalizedConfig.acodec
+      ? normalizedConfig.acodec === sourceCodecs.audio
+        ? `Copy (${normalizedConfig.acodec.toUpperCase()})`
+        : normalizedConfig.acodec.toUpperCase()
+      : t(language, "noAudioSelected")
+    : t(language, "noAudioSelected");
 
   const isExpandedDownloadDisabled = !hasDownloads || card.download.status === "pending" || !hasSelectedSources;
   return (
@@ -145,7 +162,7 @@ export function MediaCard({
         href={sourceUrl}
         target="_blank"
         rel="noreferrer"
-        aria-label={`Open the original link on ${platform.label}`}
+        aria-label={language === "en" ? `Open the original link on ${platform.label}` : `Открыть исходную ссылку на ${platform.label}`}
         className="absolute right-5 top-5 z-10 flex size-11 items-center justify-center rounded-2xl border border-[color:var(--line)] bg-black/30 text-foreground/80 backdrop-blur transition-colors duration-200 hover:border-[color:var(--line-strong)] hover:bg-black/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background lg:right-6 lg:top-6"
       >
         <PlatformIcon platform={platform} />
@@ -156,13 +173,13 @@ export function MediaCard({
           {thumbnail ? (
             <img
               src={thumbnail}
-              alt={`${metadata.title} thumbnail`}
+              alt={language === "en" ? `${metadata.title} thumbnail` : `Превью ${metadata.title}`}
               className="aspect-[1.16] w-full rounded-[1.35rem] border border-white/8 object-cover shadow-soft-glow"
               loading="lazy"
             />
           ) : (
             <div className="flex aspect-[1.16] items-center justify-center rounded-[1.35rem] border border-white/8 bg-white/[0.04] text-sm text-muted-foreground">
-              No preview available
+              {t(language, "noPreview")}
             </div>
           )}
         </div>
@@ -175,13 +192,13 @@ export function MediaCard({
               </h3>
 
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-muted-foreground">
-                <span>{formatDuration(metadata.duration)}</span>
+                <span>{formatDuration(metadata.duration, language)}</span>
                 <span className="nodus-dot" />
                 <span>{mediaBadge}</span>
               </div>
 
               <div className="rounded-full border border-[color:var(--line)] bg-black/20 px-3 py-1 text-[0.7rem] uppercase tracking-[0.2em] text-muted-foreground w-fit">
-                {metadata.formats.length} streams found
+                {metadata.formats.length} {t(language, "streamsFound")}
               </div>
             </div>
           </div>
@@ -200,7 +217,7 @@ export function MediaCard({
               isExpanded: !current.isExpanded,
             }))
           }
-          aria-label={normalizedConfig.isExpanded ? "Hide advanced options" : "Show advanced options"}
+          aria-label={normalizedConfig.isExpanded ? t(language, "hideAdvanced") : t(language, "showAdvanced")}
         >
           {normalizedConfig.isExpanded ? <ChevronUp className="size-5" /> : <ChevronDown className="size-5" />}
         </Button>
@@ -212,11 +229,11 @@ export function MediaCard({
             disabled={isQuickQualityDisabled}
           >
             <SelectTrigger className="h-12 w-32 shrink-0">
-              <SelectValue placeholder={compactChoice ? compactChoice.label : "No downloads"} />
+              <SelectValue placeholder={compactChoice ? compactChoice.label : t(language, "noDownloads")} />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                <SelectLabel>{compactChoice?.kind === "audio" ? "Audio downloads" : "Quick downloads"}</SelectLabel>
+                <SelectLabel>{compactChoice?.kind === "audio" ? t(language, "audioDownloads") : t(language, "quickDownloads")}</SelectLabel>
                 {compactChoices.map((choice) => (
                   <SelectItem key={choice.id} value={choice.id}>
                     {choice.label}
@@ -228,7 +245,7 @@ export function MediaCard({
 
           <div
             role="radiogroup"
-            aria-label="Quick download preference"
+            aria-label={t(language, "quickPreference")}
             className={cn(
               "relative flex h-12 w-[17rem] shrink-0 items-center rounded-2xl border border-[color:var(--line)] bg-black/20 p-1 transition-colors",
               isQuickQualityDisabled ? "opacity-50" : "hover:border-[color:var(--line-strong)]",
@@ -255,7 +272,7 @@ export function MediaCard({
                 card.quickQualityMode === "quality" ? "text-foreground" : "text-muted-foreground",
               )}
             >
-              Best quality
+              {t(language, "bestQuality")}
             </button>
             <button
               type="button"
@@ -269,7 +286,7 @@ export function MediaCard({
                 card.quickQualityMode === "size" ? "text-foreground" : "text-muted-foreground",
               )}
             >
-              Smaller file
+              {t(language, "smallerFile")}
             </button>
             <button
               type="button"
@@ -283,7 +300,7 @@ export function MediaCard({
                 card.quickQualityMode === "compatibility" ? "text-foreground" : "text-muted-foreground",
               )}
             >
-              Easy playback
+              {t(language, "easyPlayback")}
             </button>
           </div>
         </div>
@@ -299,8 +316,8 @@ export function MediaCard({
             className="size-12 shrink-0"
             onClick={isQuickQualityOverrideEnabled ? onExpandedDownload : onCompactDownload}
             disabled={isQuickQualityOverrideEnabled ? isExpandedDownloadDisabled : !hasDownloads || card.download.status === "pending"}
-            aria-label={card.download.status === "pending" ? "Preparing download" : "Download this media"}
-            title={card.download.status === "pending" ? "Preparing download" : "Download this media"}
+            aria-label={card.download.status === "pending" ? t(language, "preparingDownload") : t(language, "downloadAria")}
+            title={card.download.status === "pending" ? t(language, "preparingDownload") : t(language, "downloadAria")}
           >
             <Download className="size-4" />
           </Button>
@@ -325,10 +342,7 @@ export function MediaCard({
           >
             <div className="grid gap-4 xl:grid-cols-2">
               <section
-                className={cn(
-                  "rounded-[1.55rem] border border-white/[0.06] bg-white/[0.03] p-5 shadow-insetLine transition-opacity",
-                  !hasSelectedSources && "opacity-55",
-                )}
+                className="rounded-[1.55rem] border border-white/[0.06] bg-white/[0.03] p-5 shadow-insetLine"
               >
                 <div className="relative grid gap-4">
                   <button
@@ -346,8 +360,8 @@ export function MediaCard({
                         : "border-[color:var(--line)] bg-black/20 text-muted-foreground hover:text-foreground",
                     )}
                     aria-pressed={isQuickQualityOverrideEnabled}
-                    aria-label="Use advanced options for this download"
-                    title="Use advanced options"
+                    aria-label={t(language, "useAdvancedForDownload")}
+                    title={t(language, "useAdvanced")}
                   >
                     <span
                       className={cn(
@@ -368,9 +382,9 @@ export function MediaCard({
 
                   <div className="flex items-start justify-between gap-4 pr-16">
                     <div>
-                      <h4 className="font-display text-3xl tracking-[-0.03em] text-foreground">Source streams</h4>
+                      <h4 className="font-display text-3xl tracking-[-0.03em] text-foreground">{t(language, "sourceStreams")}</h4>
                       <p className="mt-1 text-sm text-muted-foreground">
-                        Turn on advanced options to choose which video and audio streams Nodus should download.
+                        {t(language, "sourceStreamsHelp")}
                       </p>
                     </div>
                   </div>
@@ -413,7 +427,7 @@ export function MediaCard({
                           >
                             <Check className="size-3" />
                           </span>
-                          Include video
+                          {t(language, "includeVideo")}
                         </button>
                         <Select
                           value={normalizedConfig.videoFormatId ?? EMPTY_SELECT_VALUE}
@@ -430,15 +444,15 @@ export function MediaCard({
                           disabled={isInputSectionDisabled || !normalizedConfig.includeVideo}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="Choose a video stream" />
+                            <SelectValue placeholder={t(language, "chooseVideoStream")} />
                           </SelectTrigger>
                           <SelectContent>
                             {videoOnlyFormats.length > 0 ? (
                               <SelectGroup>
-                                <SelectLabel>Video-only streams</SelectLabel>
+                                <SelectLabel>{t(language, "videoOnlyStreams")}</SelectLabel>
                                 {videoOnlyFormats.map((format) => (
                                   <SelectItem key={format.format_id} value={format.format_id}>
-                                    {buildVideoFormatLabel(format)}
+                                    {buildVideoFormatLabel(format, language)}
                                   </SelectItem>
                                 ))}
                               </SelectGroup>
@@ -448,10 +462,10 @@ export function MediaCard({
 
                             {muxedVideoFormats.length > 0 ? (
                               <SelectGroup>
-                                <SelectLabel>Video streams with audio</SelectLabel>
+                                <SelectLabel>{t(language, "videoStreamsWithAudio")}</SelectLabel>
                                 {muxedVideoFormats.map((format) => (
                                   <SelectItem key={format.format_id} value={format.format_id}>
-                                    {buildVideoFormatLabel(format)}
+                                    {buildVideoFormatLabel(format, language)}
                                   </SelectItem>
                                 ))}
                               </SelectGroup>
@@ -461,7 +475,7 @@ export function MediaCard({
                       </div>
                     ) : (
                       <div className="rounded-[1rem] border border-[color:var(--line)] bg-black/20 px-4 py-3 text-sm text-muted-foreground">
-                        This link only exposed audio streams, so there is no separate video track to choose.
+                        {t(language, "linkAudioOnly")}
                       </div>
                     )}
 
@@ -495,7 +509,7 @@ export function MediaCard({
                         >
                           <Check className="size-3" />
                         </span>
-                        Include audio
+                        {t(language, "includeAudio")}
                       </button>
                       {!allowsManualAudio && muxedAudioLabel ? (
                         <div className="flex h-11 w-full items-center justify-between rounded-[0.95rem] border border-[color:var(--line)] bg-white/[0.03] px-4 py-2 text-sm text-foreground opacity-50">
@@ -517,14 +531,14 @@ export function MediaCard({
                           disabled={isInputSectionDisabled || !normalizedConfig.includeAudio || audioFormats.length === 0}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="Choose an audio stream" />
+                            <SelectValue placeholder={t(language, "chooseAudioStream")} />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectGroup>
-                              <SelectLabel>Audio-only streams</SelectLabel>
+                              <SelectLabel>{t(language, "audioOnlyStreams")}</SelectLabel>
                               {audioFormats.map((format) => (
                                 <SelectItem key={format.format_id} value={format.format_id}>
-                                  {buildAudioFormatLabel(format)}
+                                  {buildAudioFormatLabel(format, language)}
                                 </SelectItem>
                               ))}
                             </SelectGroup>
@@ -534,9 +548,9 @@ export function MediaCard({
                       <p className="text-xs leading-5 text-muted-foreground">
                         {allowsManualAudio
                           ? audioFormats.length > 0
-                            ? "When the chosen video has no sound, Nodus combines it with this audio stream."
-                            : "This source did not provide a separate audio stream."
-                          : "The selected video already includes audio, so the audio choice is locked."}
+                            ? t(language, "whenSeparateAudio")
+                            : t(language, "audioStreamMissing")
+                          : t(language, "audioChoiceLocked")}
                       </p>
                     </div>
                   </div>
@@ -551,14 +565,14 @@ export function MediaCard({
               >
                 <div className="grid gap-4">
                   <div>
-                    <h4 className="font-display text-3xl tracking-[-0.03em] text-foreground">Output file</h4>
+                    <h4 className="font-display text-3xl tracking-[-0.03em] text-foreground">{t(language, "outputFile")}</h4>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Keep the original streams, repackage them into another container, or convert them with ffmpeg.
+                      {t(language, "outputFileHelp")}
                     </p>
                   </div>
 
                   <div className="grid gap-2">
-                    <label className="text-sm font-medium text-muted-foreground">How Nodus should create the file</label>
+                    <label className="text-sm font-medium text-muted-foreground">{t(language, "howCreateFile")}</label>
                     <ToggleGroup
                       type="single"
                       value={normalizedConfig.mode}
@@ -578,26 +592,25 @@ export function MediaCard({
                       className="grid w-full grid-cols-1 gap-2 md:grid-cols-3"
                     >
                       <ToggleGroupItem value="original" className="w-full">
-                        Keep original
+                        {t(language, "keepOriginal")}
                       </ToggleGroupItem>
                       <ToggleGroupItem value="remux" className="w-full">
-                        Repackage
+                        {t(language, "repackage")}
                       </ToggleGroupItem>
                       <ToggleGroupItem value="convert" className="w-full">
-                        Convert
+                        {t(language, "convert")}
                       </ToggleGroupItem>
                     </ToggleGroup>
                   </div>
 
                   <div className="grid gap-2">
                     <label className="text-sm font-medium text-muted-foreground">
-                      {normalizedConfig.mode === "original" ? "Container chosen automatically" : "Output container"}
+                      {normalizedConfig.mode === "original" ? t(language, "containerAuto") : t(language, "outputContainer")}
                     </label>
                     {normalizedConfig.mode === "original" ? (
-                      <div className="flex h-11 w-full items-center justify-between rounded-[0.95rem] border border-[color:var(--line)] bg-white/[0.03] px-4 py-2 text-sm text-foreground opacity-50">
-                        <span className="line-clamp-1">{originalContainerLabel}</span>
-                        <ChevronDown className="size-4 text-muted-foreground" />
-                      </div>
+                      <ReadonlySelectField
+                        label={hasSelectedSources ? originalContainerLabel : t(language, "noSourcesSelected")}
+                      />
                     ) : (
                       <Select
                         value={normalizedConfig.container ?? EMPTY_SELECT_VALUE}
@@ -614,12 +627,12 @@ export function MediaCard({
                         disabled={!canChooseContainer}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Choose an output container" />
+                          <SelectValue placeholder={t(language, "chooseOutputContainer")} />
                         </SelectTrigger>
                         <SelectContent>
                            {audioOnlyContainers.length > 0 ? (
                              <SelectGroup>
-                               <SelectLabel>Audio-only containers</SelectLabel>
+                               <SelectLabel>{t(language, "audioOnlyContainers")}</SelectLabel>
                                {audioOnlyContainers.map((container) => (
                                  <SelectItem key={container} value={container}>
                                    {formatContainerOptionLabel(container)}
@@ -633,7 +646,7 @@ export function MediaCard({
                            {videoCapableContainers.length > 0 ? (
                              <SelectGroup>
                                <SelectLabel>
-                                 {audioOnlyContainers.length > 0 ? "Video containers" : "Compatible containers"}
+                                 {audioOnlyContainers.length > 0 ? t(language, "videoContainers") : t(language, "compatibleContainers")}
                                </SelectLabel>
                                {videoCapableContainers.map((container) => (
                                  <SelectItem key={container} value={container}>
@@ -650,66 +663,72 @@ export function MediaCard({
                   <div className="grid gap-2 md:grid-cols-2">
                     <div className={cn("grid gap-2 transition-opacity", !normalizedConfig.includeVideo && "opacity-60")}>
                       <label className="text-sm font-medium text-muted-foreground">
-                        {normalizedConfig.mode === "convert" ? "Convert video to" : "Video codec"}
+                        {normalizedConfig.mode === "convert" ? t(language, "convertVideoTo") : t(language, "videoCodec")}
                       </label>
-                      <Select
-                        value={normalizedConfig.vcodec ?? EMPTY_SELECT_VALUE}
-                        onValueChange={(value) =>
-                          onConfigChange((current) =>
-                            coerceExpandedConfig(metadata, {
-                              ...current,
-                            vcodec: value,
-                          }),
-                        )
-                      }
-                      disabled={!canChooseVideoCodec}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="No video selected" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectGroup>
-                            <SelectLabel>Video codec options</SelectLabel>
-                            {videoCodecOptions.map((codec) => (
-                              <SelectItem key={codec} value={codec}>
-                                {codec === sourceCodecs.video ? `Copy (${codec.toUpperCase()})` : codec.toUpperCase()}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
+                      {canChooseVideoCodec ? (
+                        <Select
+                          value={normalizedConfig.vcodec ?? EMPTY_SELECT_VALUE}
+                          onValueChange={(value) =>
+                            onConfigChange((current) =>
+                              coerceExpandedConfig(metadata, {
+                                ...current,
+                              vcodec: value,
+                            }),
+                          )
+                        }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={t(language, "noVideoSelected")} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectGroup>
+                              <SelectLabel>{t(language, "videoCodecOptions")}</SelectLabel>
+                              {videoCodecOptions.map((codec) => (
+                                <SelectItem key={codec} value={codec}>
+                                  {codec === sourceCodecs.video ? `Copy (${codec.toUpperCase()})` : codec.toUpperCase()}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <ReadonlySelectField label={videoCodecDisplay} />
+                      )}
                     </div>
 
                     <div className={cn("grid gap-2 transition-opacity", !normalizedConfig.includeAudio && "opacity-60")}>
                       <label className="text-sm font-medium text-muted-foreground">
-                        {normalizedConfig.mode === "convert" ? "Convert audio to" : "Audio codec"}
+                        {normalizedConfig.mode === "convert" ? t(language, "convertAudioTo") : t(language, "audioCodec")}
                       </label>
-                      <Select
-                        value={normalizedConfig.acodec ?? EMPTY_SELECT_VALUE}
-                        onValueChange={(value) =>
-                          onConfigChange((current) =>
-                            coerceExpandedConfig(metadata, {
-                              ...current,
-                            acodec: value,
-                          }),
-                        )
-                      }
-                      disabled={!canChooseAudioCodec}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="No audio selected" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectGroup>
-                            <SelectLabel>Audio codec options</SelectLabel>
-                            {audioCodecOptions.map((codec) => (
-                              <SelectItem key={codec} value={codec}>
-                                {codec === sourceCodecs.audio ? `Copy (${codec.toUpperCase()})` : codec.toUpperCase()}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
+                      {canChooseAudioCodec ? (
+                        <Select
+                          value={normalizedConfig.acodec ?? EMPTY_SELECT_VALUE}
+                          onValueChange={(value) =>
+                            onConfigChange((current) =>
+                              coerceExpandedConfig(metadata, {
+                                ...current,
+                              acodec: value,
+                            }),
+                          )
+                        }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={t(language, "noAudioSelected")} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectGroup>
+                              <SelectLabel>{t(language, "audioCodecOptions")}</SelectLabel>
+                              {audioCodecOptions.map((codec) => (
+                                <SelectItem key={codec} value={codec}>
+                                  {codec === sourceCodecs.audio ? `Copy (${codec.toUpperCase()})` : codec.toUpperCase()}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <ReadonlySelectField label={audioCodecDisplay} />
+                      )}
                     </div>
                   </div>
                 </div>
@@ -724,5 +743,14 @@ export function MediaCard({
         <div className="border-t border-white/[0.05] px-5 pb-5 pt-4 text-sm text-destructive">{card.download.message}</div>
       ) : null}
     </Card>
+  );
+}
+
+function ReadonlySelectField({ label }: { label: string }) {
+  return (
+    <div className="flex h-11 w-full items-center justify-between rounded-[0.95rem] border border-[color:var(--line)] bg-white/[0.03] px-4 py-2 text-sm text-muted-foreground opacity-70">
+      <span className="line-clamp-1">{label}</span>
+      <ChevronDown className="size-4 text-muted-foreground" />
+    </div>
   );
 }

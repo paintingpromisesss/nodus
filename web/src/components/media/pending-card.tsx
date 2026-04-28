@@ -2,15 +2,17 @@ import { LoaderCircle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { t, type Language } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 interface PendingCardProps {
   url: string;
   className?: string;
   staticPreview?: boolean;
+  language: Language;
 }
 
-export function PendingCard({ url: _url, className, staticPreview = false }: PendingCardProps) {
+export function PendingCard({ url: _url, className, staticPreview = false, language }: PendingCardProps) {
   const skeletonClassName = staticPreview
     ? "rounded-[1rem] bg-white/[0.08]"
     : "animate-shimmer rounded-[1rem] bg-[linear-gradient(110deg,rgba(255,255,255,0.05),rgba(255,255,255,0.12),rgba(255,255,255,0.05))] bg-[length:200%_100%]";
@@ -38,7 +40,7 @@ export function PendingCard({ url: _url, className, staticPreview = false }: Pen
 
             <div className="flex items-center gap-2 rounded-full border border-[color:var(--line)] bg-black/20 px-3 py-1.5 text-xs uppercase tracking-[0.14em] text-muted-foreground">
               <LoaderCircle className={cn("size-3.5 text-[color:var(--accent)]", !staticPreview && "animate-spin")} />
-              Reading link
+              {t(language, "readingLink")}
             </div>
           </div>
         </div>

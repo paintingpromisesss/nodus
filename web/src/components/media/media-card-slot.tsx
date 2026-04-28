@@ -2,6 +2,7 @@ import * as React from "react";
 import { ErrorCard } from "@/components/media/error-card";
 import { MediaCard } from "@/components/media/media-card";
 import { PendingCard } from "@/components/media/pending-card";
+import type { Language } from "@/lib/i18n";
 import type { ExpandedConfig, MediaCard as MediaCardRecord, QuickQualityMode, SuccessMediaCard } from "@/lib/media";
 
 interface MediaCardSlotProps {
@@ -11,6 +12,7 @@ interface MediaCardSlotProps {
   onConfigChange: (index: number, updater: (current: ExpandedConfig) => ExpandedConfig) => void;
   onCompactDownload: (index: number) => void | Promise<void>;
   onExpandedDownload: (index: number) => void | Promise<void>;
+  language: Language;
 }
 
 type SlotPhase = "steady" | "exiting-pending";
@@ -22,6 +24,7 @@ export function MediaCardSlot({
   onConfigChange,
   onCompactDownload,
   onExpandedDownload,
+  language,
 }: MediaCardSlotProps) {
   const [phase, setPhase] = React.useState<SlotPhase>("steady");
   const [displayCard, setDisplayCard] = React.useState<MediaCardRecord>(card);
@@ -68,15 +71,15 @@ export function MediaCardSlot({
   }, [enteringSuccess]);
 
   if (phase === "exiting-pending" && displayCard.state === "pending") {
-    return <PendingCard url={displayCard.url} className="animate-resolve-overlay-out" />;
+    return <PendingCard url={displayCard.url} className="animate-resolve-overlay-out" language={language} />;
   }
 
   if (displayCard.state === "pending") {
-    return <PendingCard url={displayCard.url} />;
+    return <PendingCard url={displayCard.url} language={language} />;
   }
 
   if (displayCard.state === "error") {
-    return <ErrorCard url={displayCard.url} message={displayCard.message} />;
+    return <ErrorCard url={displayCard.url} message={displayCard.message} language={language} />;
   }
 
   const successCard = displayCard as SuccessMediaCard;
@@ -90,6 +93,7 @@ export function MediaCardSlot({
       onConfigChange={(updater) => onConfigChange(successCard.index, updater)}
       onCompactDownload={() => void onCompactDownload(successCard.index)}
       onExpandedDownload={() => void onExpandedDownload(successCard.index)}
+      language={language}
     />
   );
 }

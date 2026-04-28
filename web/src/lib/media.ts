@@ -1,3 +1,4 @@
+import { t, type Language } from "@/lib/i18n";
 import { getPlatformLabel as resolvePlatformLabel } from "@/lib/platforms";
 
 export interface FetchMetadataStreamRequest {
@@ -220,9 +221,9 @@ export function getPlatformLabel(value: string) {
   return resolvePlatformLabel(value);
 }
 
-export function formatDuration(seconds: number) {
+export function formatDuration(seconds: number, language: Language = "en") {
   if (!Number.isFinite(seconds) || seconds <= 0) {
-    return "Live / unknown";
+    return t(language, "liveUnknown");
   }
 
   const hours = Math.floor(seconds / 3600);
@@ -236,9 +237,9 @@ export function formatDuration(seconds: number) {
   return `${minutes}:${String(rest).padStart(2, "0")}`;
 }
 
-export function formatBytes(bytes?: number) {
+export function formatBytes(bytes?: number, language: Language = "en") {
   if (!bytes || bytes <= 0) {
-    return "Size n/a";
+    return t(language, "sizeNA");
   }
 
   const units = ["B", "KB", "MB", "GB", "TB"];
@@ -290,21 +291,25 @@ export function getAudioOnlyFormats(metadata: MediaMetadata) {
   return metadata.formats.filter(isAudioOnly).sort(compareAudioFormats);
 }
 
-export function getMediaBadgeLabel(metadata: MediaMetadata) {
+export function getMediaBadgeLabel(metadata: MediaMetadata, language: Language = "en") {
   const videoFormats = getVideoFormats(metadata);
   const audioFormats = getAudioOnlyFormats(metadata);
 
   if (videoFormats.length === 0 && audioFormats.length > 0) {
-    return "Audio";
+    return t(language, "audio");
   }
   if (metadata.is_live) {
-    return "Live";
+    return t(language, "live");
   }
 
-  return "Video";
+  return t(language, "video");
 }
 
-export function getCompactChoices(metadata: MediaMetadata, mode: QuickQualityMode = "quality"): CompactChoice[] {
+export function getCompactChoices(
+  metadata: MediaMetadata,
+  mode: QuickQualityMode = "quality",
+  language: Language = "en",
+): CompactChoice[] {
   const videoFormats = getVideoFormats(metadata)
     .filter(mode === "compatibility" ? isMuxed : isVideoOnly)
     .sort((left, right) => compareCompactVideoFormats(left, right, mode));
@@ -340,8 +345,8 @@ export function getCompactChoices(metadata: MediaMetadata, mode: QuickQualityMod
       return {
         id: `video:${key}`,
         kind: "video" as const,
-        label: getQualityLabel(preferredFormat),
-        detail: describeCompactPreference(preferredFormat),
+        label: getQualityLabel(preferredFormat, language),
+        detail: describeCompactPreference(preferredFormat, language),
         preferredFormat,
         formats: sorted,
       };
@@ -465,6 +470,10 @@ export function getCompatibleContainers(hasVideoStream: boolean, hasAudioStream:
 
 export function getCompatibleContainersForConfig(metadata: MediaMetadata, config: ExpandedConfig) {
   const normalized = coerceExpandedConfig(metadata, config);
+  if (!normalized.includeVideo && !normalized.includeAudio) {
+    return [];
+  }
+
   const resolved = resolveExpandedStreams(metadata, normalized);
   return getCompatibleContainersForResolvedStreams(resolved, normalized.mode);
 }
@@ -481,6 +490,13 @@ export function getOriginalContainerDisplay(metadata: MediaMetadata, config: Exp
     ...config,
     mode: "original",
   });
+  if (!normalized.includeVideo && !normalized.includeAudio) {
+    return {
+      containers: [],
+      showDefault: false,
+    };
+  }
+
   const resolved = resolveExpandedStreams(metadata, normalized);
   const isSeparateVideoAudio = Boolean(resolved.videoFormat && resolved.audioFormat);
 
@@ -499,16 +515,18 @@ export function getOriginalContainerDisplay(metadata: MediaMetadata, config: Exp
 
 export function formatContainerDisplay(
   display: { containers: string[]; showDefault: boolean } | null,
-  options: { includeDefault?: boolean } = {},
+  options: { includeDefault?: boolean; language?: Language } = {},
 ) {
+  const language = options.language ?? "en";
+
   if (!display?.containers.length) {
-    return "No container";
+    return t(language, "noContainer");
   }
 
   const includeDefault = options.includeDefault ?? true;
 
   return `${display.containers.map((container) => container.toUpperCase()).join(" / ")}${
-    includeDefault && display.showDefault ? " (default)" : ""
+    includeDefault && display.showDefault ? ` (${t(language, "defaultSuffix")})` : ""
   }`;
 }
 
@@ -550,6 +568,13 @@ export function getAudioCodecOptions(container: string, hasAudioStream: boolean,
 
 export function getSourceCodecsForConfig(metadata: MediaMetadata, config: ExpandedConfig) {
   const normalized = coerceExpandedConfig(metadata, config);
+  if (!normalized.includeVideo && !normalized.includeAudio) {
+    return {
+      video: null,
+      audio: null,
+    };
+  }
+
   const resolved = resolveExpandedStreams(metadata, normalized);
 
   return {
@@ -781,12 +806,12 @@ export function resolveExpandedStreams(metadata: MediaMetadata, config: Expanded
   };
 }
 
-export function describeSelection(metadata: MediaMetadata, config: ExpandedConfig) {
+export function describeSelection(metadata: MediaMetadata, config: ExpandedConfig, language: Language = "en") {
   const normalized = coerceExpandedConfig(metadata, config);
   const resolved = resolveExpandedStreams(metadata, normalized);
   const originalContainerLabel =
     normalized.mode === "original"
-      ? formatContainerDisplay(getOriginalContainerDisplay(metadata, normalized), { includeDefault: false })
+      ? formatContainerDisplay(getOriginalContainerDisplay(metadata, normalized), { includeDefault: false, language })
       : null;
 
   return describeResolvedStreams(resolved, {
@@ -794,7 +819,7 @@ export function describeSelection(metadata: MediaMetadata, config: ExpandedConfi
     containerLabelOverride: originalContainerLabel,
     videoCodecOverride: normalized.mode === "convert" ? normalized.vcodec : null,
     audioCodecOverride: normalized.mode === "convert" ? normalized.acodec : null,
-  });
+  }, language);
 }
 
 export function describeCompactSelection(
@@ -802,8 +827,9 @@ export function describeCompactSelection(
   compactChoiceId: string,
   mode: QuickQualityMode = "quality",
   outputConfig?: ExpandedConfig,
+  language: Language = "en",
 ) {
-  return describeResolvedStreamsWithOutput(resolveCompactStreams(metadata, compactChoiceId, mode), outputConfig);
+  return describeResolvedStreamsWithOutput(resolveCompactStreams(metadata, compactChoiceId, mode), outputConfig, language);
 }
 
 export function describeResolvedStreams(
@@ -814,6 +840,7 @@ export function describeResolvedStreams(
     videoCodecOverride?: string | null;
     audioCodecOverride?: string | null;
   },
+  language: Language = "en",
 ) {
   const parts: string[] = [];
   const container = overrides?.containerOverride ?? getOriginalOutputContainer(resolved);
@@ -821,12 +848,13 @@ export function describeResolvedStreams(
   const videoPart = buildSummaryVideoPart(
     resolved.videoFormat,
     overrides?.videoCodecOverride ?? getResolvedVideoCodec(resolved),
+    language,
   );
   const audioPart = buildSummaryAudioPart(
     resolved,
     overrides?.audioCodecOverride ?? getResolvedAudioCodec(resolved),
   );
-  const sizePart = buildSummarySizePart(resolved);
+  const sizePart = buildSummarySizePart(resolved, language);
 
   if (videoPart) {
     parts.push(videoPart);
@@ -845,52 +873,57 @@ export function describeResolvedStreams(
   return parts.join(" | ");
 }
 
-function describeResolvedStreamsWithOutput(resolved: ResolvedStreams, outputConfig?: ExpandedConfig) {
+function describeResolvedStreamsWithOutput(
+  resolved: ResolvedStreams,
+  outputConfig?: ExpandedConfig,
+  language: Language = "en",
+) {
   if (!outputConfig) {
-    return describeResolvedStreams(resolved);
+    return describeResolvedStreams(resolved, undefined, language);
   }
 
   if (outputConfig.mode === "original") {
     return describeResolvedStreams(resolved, {
       containerLabelOverride: formatContainerDisplay(getOriginalResolvedContainerDisplay(resolved), {
         includeDefault: false,
+        language,
       }),
-    });
+    }, language);
   }
 
   return describeResolvedStreams(resolved, {
     containerOverride: outputConfig.container,
     videoCodecOverride: outputConfig.mode === "convert" ? outputConfig.vcodec : null,
     audioCodecOverride: outputConfig.mode === "convert" ? outputConfig.acodec : null,
-  });
+  }, language);
 }
 
-export function buildVideoFormatLabel(format: MediaFormat) {
+export function buildVideoFormatLabel(format: MediaFormat, language: Language = "en") {
   return [
-    format.height > 0 && format.width > 0 ? `${format.width}x${format.height}` : getQualityLabel(format),
+    format.height > 0 && format.width > 0 ? `${format.width}x${format.height}` : getQualityLabel(format, language),
     format.fps > 0 ? `${Math.round(format.fps)} FPS` : null,
     format.vcodec && format.vcodec !== "none" ? format.vcodec.toUpperCase() : null,
     formatVideoBitrate(format),
-    getApproxSize(format) > 0 ? formatBytes(getApproxSize(format)) : null,
+    getApproxSize(format) > 0 ? formatBytes(getApproxSize(format), language) : null,
   ]
     .filter(Boolean)
     .join(" | ");
 }
 
-export function buildAudioFormatLabel(format: MediaFormat) {
+export function buildAudioFormatLabel(format: MediaFormat, language: Language = "en") {
   return [
     formatAudioBitrate(format),
     format.acodec && format.acodec !== "none" ? format.acodec.toUpperCase() : null,
-    getApproxSize(format) > 0 ? formatBytes(getApproxSize(format)) : null,
+    getApproxSize(format) > 0 ? formatBytes(getApproxSize(format), language) : null,
   ]
     .filter(Boolean)
     .join(" | ");
 }
 
-export function buildMuxedFormatLabel(format: MediaFormat) {
+export function buildMuxedFormatLabel(format: MediaFormat, language: Language = "en") {
   return {
-    videoLine: buildVideoFormatLabel(format),
-    audioLine: buildAudioFormatLabel(format),
+    videoLine: buildVideoFormatLabel(format, language),
+    audioLine: buildAudioFormatLabel(format, language),
   };
 }
 
@@ -1018,22 +1051,22 @@ function getQualityKey(format: MediaFormat) {
   return format.format_note || format.format_id;
 }
 
-function getQualityLabel(format: MediaFormat) {
+function getQualityLabel(format: MediaFormat, language: Language = "en") {
   if (format.height > 0) {
     return `${format.height}p`;
   }
   if (format.resolution && format.resolution !== "audio only") {
     return format.resolution;
   }
-  return format.format_note || "Unknown";
+  return format.format_note || t(language, "unknown");
 }
 
-function describeCompactPreference(format: MediaFormat) {
+function describeCompactPreference(format: MediaFormat, language: Language = "en") {
   if (isMuxed(format)) {
-    return `${format.ext.toUpperCase()} muxed`;
+    return `${format.ext.toUpperCase()} ${t(language, "muxedPreference")}`;
   }
   if (isVideoOnly(format)) {
-    return `${format.ext.toUpperCase()} + best audio`;
+    return `${format.ext.toUpperCase()} + ${t(language, "videoWithBestAudio")}`;
   }
   return format.ext.toUpperCase();
 }
@@ -1289,12 +1322,12 @@ function prioritizeCodecOptions(codecs: readonly string[], preferredCodec: strin
   return [normalizedPreferred, ...codecs.filter((codec) => codec !== normalizedPreferred)];
 }
 
-function buildSummaryVideoPart(format: MediaFormat | null, codec: string | null) {
+function buildSummaryVideoPart(format: MediaFormat | null, codec: string | null, language: Language = "en") {
   if (!format || !hasVideo(format)) {
     return null;
   }
 
-  return [getQualityLabel(format), codec?.toUpperCase() ?? null].filter(Boolean).join(" ");
+  return [getQualityLabel(format, language), codec?.toUpperCase() ?? null].filter(Boolean).join(" ");
 }
 
 function buildSummaryAudioPart(resolved: ResolvedStreams, codec: string | null) {
@@ -1317,13 +1350,13 @@ function buildSummaryContainerPart(container: string | null) {
   return container.toUpperCase();
 }
 
-function buildSummarySizePart(resolved: ResolvedStreams) {
+function buildSummarySizePart(resolved: ResolvedStreams, language: Language = "en") {
   const totalSize = getResolvedTotalSize(resolved);
   if (totalSize <= 0) {
     return null;
   }
 
-  return formatBytes(totalSize);
+  return formatBytes(totalSize, language);
 }
 
 function getResolvedTotalSize(resolved: ResolvedStreams) {
