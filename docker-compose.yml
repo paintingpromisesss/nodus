@@ -1,9 +1,9 @@
 services:
-  nodus-rework:
+  nodus-backend:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: nodus-rework
+    container_name: nodus-backend
     ports:
       - "8888:8888"
     env_file:
@@ -11,17 +11,17 @@ services:
     restart: unless-stopped
 
   nodus-web:
-    build:
-      context: ./web
-      dockerfile: Dockerfile
-    container_name: nodus-web
-    depends_on:
-      - nodus-rework
-    environment:
-      VITE_API_BASE: http://nodus-rework:8888
-    ports:
-      - "5173:5173"
-    restart: unless-stopped
+  build:
+    context: ./web
+    dockerfile: Dockerfile
+  container_name: nodus-web
+  depends_on:
+   - nodus-backend
+  environment:
+    VITE_API_BASE: http://nodus-backend:8888
+  ports:
+   - "5173:5173"
+  restart: unless-stopped
 
 volumes:
   nodus_rework_data:

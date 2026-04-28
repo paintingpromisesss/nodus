@@ -9,8 +9,8 @@ import (
 	"os"
 
 	"github.com/gofiber/fiber/v3"
-	"github.com/paintingpromisesss/nodus-backend/internal/server/dto"
-	"github.com/paintingpromisesss/nodus-backend/internal/ytdlp"
+	"github.com/paintingpromisesss/nodus/internal/server/dto"
+	"github.com/paintingpromisesss/nodus/internal/ytdlp"
 )
 
 func (s *Server) handleHealth(c fiber.Ctx) error {
@@ -72,16 +72,26 @@ func (s *Server) handleDownload(c fiber.Ctx) error {
 	if err != nil {
 		return RespondWithError(c, fiber.StatusBadRequest, err)
 	}
+	filePath := result.FilePath
+	defer func() {
+		if filePath != "" {
+			removeFileQuietly(filePath)
+		}
+	}()
 
 	file, err := os.Open(result.FilePath)
 	if err != nil {
 		return RespondWithError(c, fiber.StatusInternalServerError, err)
 	}
 
+	defer func() {
+		if file != nil {
+			_ = file.Close()
+		}
+	}()
+
 	info, err := file.Stat()
 	if err != nil {
-		_ = file.Close()
-		removeFileQuietly(result.FilePath)
 		return RespondWithError(c, fiber.StatusInternalServerError, err)
 	}
 
@@ -96,11 +106,18 @@ func (s *Server) handleDownload(c fiber.Ctx) error {
 
 	setDownloadHeaders(c, filename, contentType, info.Size())
 
-	return c.SendStreamWriter(func(writer *bufio.Writer) {
-		defer file.Close()
-		defer removeFileQuietly(result.FilePath)
+	streamFile := file
+	streamPath := filePath
+	file = nil
+	filePath = ""
 
-		_, _ = io.Copy(writer, file)
+	return c.SendStreamWriter(func(writer *bufio.Writer) {
+		defer func() {
+			_ = streamFile.Close()
+		}()
+		defer removeFileQuietly(streamPath)
+
+		_, _ = io.Copy(writer, streamFile)
 		_ = writer.Flush()
 	})
 }

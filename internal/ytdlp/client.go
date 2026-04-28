@@ -3,7 +3,7 @@ package ytdlp
 import (
 	"errors"
 
-	"github.com/paintingpromisesss/nodus-backend/internal/ffmpeg"
+	"github.com/paintingpromisesss/nodus/internal/ffmpeg"
 )
 
 var (

@@ -1,4 +1,4 @@
-# nodus-rework
+# nodus
 
 ## Run locally
 

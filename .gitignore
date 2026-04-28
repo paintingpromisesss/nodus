@@ -5,3 +5,10 @@
 *.tsbuildinfo
 node_modules
 dist
+
+demo.json
+nodus.html
+supportedsites.md
+
+.agents
+.codegraph

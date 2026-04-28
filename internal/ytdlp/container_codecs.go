@@ -52,7 +52,7 @@ func normalizeCodec(codec *string) *string {
 	if codec == nil {
 		return nil
 	}
-	normalized := strings.ToLower(strings.TrimSpace(*codec))
+	normalized := normalizeCodecValue(*codec)
 	if normalized == "" {
 		return nil
 	}
@@ -99,4 +99,28 @@ func validateContainerCodecs(container, vcodec, acodec *string) error {
 	}
 
 	return nil
+}
+
+func normalizeCodecValue(codec string) string {
+	normalized := strings.ToLower(strings.TrimSpace(codec))
+	if normalized == "" {
+		return ""
+	}
+
+	switch {
+	case strings.HasPrefix(normalized, "av01"):
+		return "av1"
+	case strings.HasPrefix(normalized, "avc1"), strings.HasPrefix(normalized, "avc3"), normalized == "h264":
+		return "h264"
+	case strings.HasPrefix(normalized, "hev1"), strings.HasPrefix(normalized, "hvc1"), normalized == "hevc":
+		return "hevc"
+	case strings.HasPrefix(normalized, "vp09"), normalized == "vp9":
+		return "vp9"
+	case strings.HasPrefix(normalized, "vp08"), normalized == "vp8":
+		return "vp8"
+	case strings.HasPrefix(normalized, "mp4a"), normalized == "aac":
+		return "aac"
+	default:
+		return normalized
+	}
 }
