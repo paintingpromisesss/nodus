@@ -38,7 +38,7 @@ export function PendingCard({ url: _url, className, staticPreview = false }: Pen
 
             <div className="flex items-center gap-2 rounded-full border border-[color:var(--line)] bg-black/20 px-3 py-1.5 text-xs uppercase tracking-[0.14em] text-muted-foreground">
               <LoaderCircle className={cn("size-3.5 text-[color:var(--accent)]", !staticPreview && "animate-spin")} />
-              Loading
+              Reading link
             </div>
           </div>
         </div>

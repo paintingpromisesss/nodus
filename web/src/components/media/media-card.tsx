@@ -117,7 +117,7 @@ export function MediaCard({
   const hasCompatibilityDownloads = compatibilityChoices.length > 0;
   const compactSummary = compactChoice
     ? describeCompactSelection(metadata, compactChoice.id, card.quickQualityMode, normalizedConfig)
-    : "No format options";
+    : "No downloadable formats found";
   const isQuickQualityOverrideEnabled = normalizedConfig.overrideQuickQuality;
   const isInputSectionDisabled = !isQuickQualityOverrideEnabled;
   const canChooseContainer =
@@ -129,8 +129,8 @@ export function MediaCard({
   const expandedSummary = hasDownloads
     ? hasSelectedSources
       ? describeSelection(metadata, normalizedConfig)
-      : "Select at least one source"
-    : "No format options";
+      : "Choose video, audio, or both"
+    : "No downloadable formats found";
   const isQuickQualityDisabled = isQuickQualityOverrideEnabled || !hasDownloads || card.download.status === "pending";
   const activeDownloadSummary = isQuickQualityOverrideEnabled ? expandedSummary : compactSummary;
   const mediaBadge = getMediaBadgeLabel(metadata);
@@ -145,7 +145,7 @@ export function MediaCard({
         href={sourceUrl}
         target="_blank"
         rel="noreferrer"
-        aria-label={`Open original source: ${platform.label}`}
+        aria-label={`Open the original link on ${platform.label}`}
         className="absolute right-5 top-5 z-10 flex size-11 items-center justify-center rounded-2xl border border-[color:var(--line)] bg-black/30 text-foreground/80 backdrop-blur transition-colors duration-200 hover:border-[color:var(--line-strong)] hover:bg-black/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background lg:right-6 lg:top-6"
       >
         <PlatformIcon platform={platform} />
@@ -162,7 +162,7 @@ export function MediaCard({
             />
           ) : (
             <div className="flex aspect-[1.16] items-center justify-center rounded-[1.35rem] border border-white/8 bg-white/[0.04] text-sm text-muted-foreground">
-              Preview unavailable
+              No preview available
             </div>
           )}
         </div>
@@ -181,7 +181,7 @@ export function MediaCard({
               </div>
 
               <div className="rounded-full border border-[color:var(--line)] bg-black/20 px-3 py-1 text-[0.7rem] uppercase tracking-[0.2em] text-muted-foreground w-fit">
-                {metadata.formats.length} formats returned
+                {metadata.formats.length} streams found
               </div>
             </div>
           </div>
@@ -200,7 +200,7 @@ export function MediaCard({
               isExpanded: !current.isExpanded,
             }))
           }
-          aria-label={normalizedConfig.isExpanded ? "Collapse details" : "Expand details"}
+          aria-label={normalizedConfig.isExpanded ? "Hide advanced options" : "Show advanced options"}
         >
           {normalizedConfig.isExpanded ? <ChevronUp className="size-5" /> : <ChevronDown className="size-5" />}
         </Button>
@@ -212,11 +212,11 @@ export function MediaCard({
             disabled={isQuickQualityDisabled}
           >
             <SelectTrigger className="h-12 w-32 shrink-0">
-              <SelectValue placeholder={compactChoice ? compactChoice.label : "No formats"} />
+              <SelectValue placeholder={compactChoice ? compactChoice.label : "No downloads"} />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                <SelectLabel>{compactChoice?.kind === "audio" ? "Audio options" : "Quick quality"}</SelectLabel>
+                <SelectLabel>{compactChoice?.kind === "audio" ? "Audio downloads" : "Quick downloads"}</SelectLabel>
                 {compactChoices.map((choice) => (
                   <SelectItem key={choice.id} value={choice.id}>
                     {choice.label}
@@ -228,7 +228,7 @@ export function MediaCard({
 
           <div
             role="radiogroup"
-            aria-label="Quick quality mode"
+            aria-label="Quick download preference"
             className={cn(
               "relative flex h-12 w-[17rem] shrink-0 items-center rounded-2xl border border-[color:var(--line)] bg-black/20 p-1 transition-colors",
               isQuickQualityDisabled ? "opacity-50" : "hover:border-[color:var(--line-strong)]",
@@ -255,7 +255,7 @@ export function MediaCard({
                 card.quickQualityMode === "quality" ? "text-foreground" : "text-muted-foreground",
               )}
             >
-              Best Quality
+              Best quality
             </button>
             <button
               type="button"
@@ -269,7 +269,7 @@ export function MediaCard({
                 card.quickQualityMode === "size" ? "text-foreground" : "text-muted-foreground",
               )}
             >
-              Smallest Size
+              Smaller file
             </button>
             <button
               type="button"
@@ -283,7 +283,7 @@ export function MediaCard({
                 card.quickQualityMode === "compatibility" ? "text-foreground" : "text-muted-foreground",
               )}
             >
-              Best Compatibility
+              Easy playback
             </button>
           </div>
         </div>
@@ -299,8 +299,8 @@ export function MediaCard({
             className="size-12 shrink-0"
             onClick={isQuickQualityOverrideEnabled ? onExpandedDownload : onCompactDownload}
             disabled={isQuickQualityOverrideEnabled ? isExpandedDownloadDisabled : !hasDownloads || card.download.status === "pending"}
-            aria-label={card.download.status === "pending" ? "Downloading" : "Download"}
-            title={card.download.status === "pending" ? "Downloading" : "Download"}
+            aria-label={card.download.status === "pending" ? "Preparing download" : "Download this media"}
+            title={card.download.status === "pending" ? "Preparing download" : "Download this media"}
           >
             <Download className="size-4" />
           </Button>
@@ -346,8 +346,8 @@ export function MediaCard({
                         : "border-[color:var(--line)] bg-black/20 text-muted-foreground hover:text-foreground",
                     )}
                     aria-pressed={isQuickQualityOverrideEnabled}
-                    aria-label="Toggle quick quality override"
-                    title="Override quick quality"
+                    aria-label="Use advanced options for this download"
+                    title="Use advanced options"
                   >
                     <span
                       className={cn(
@@ -368,9 +368,9 @@ export function MediaCard({
 
                   <div className="flex items-start justify-between gap-4 pr-16">
                     <div>
-                      <h4 className="font-display text-3xl tracking-[-0.03em] text-foreground">Input</h4>
+                      <h4 className="font-display text-3xl tracking-[-0.03em] text-foreground">Source streams</h4>
                       <p className="mt-1 text-sm text-muted-foreground">
-                        Pick the exact streams that will be sent to the backend.
+                        Turn on advanced options to choose which video and audio streams Nodus should download.
                       </p>
                     </div>
                   </div>
@@ -413,7 +413,7 @@ export function MediaCard({
                           >
                             <Check className="size-3" />
                           </span>
-                          Source video
+                          Include video
                         </button>
                         <Select
                           value={normalizedConfig.videoFormatId ?? EMPTY_SELECT_VALUE}
@@ -430,12 +430,12 @@ export function MediaCard({
                           disabled={isInputSectionDisabled || !normalizedConfig.includeVideo}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="Choose video format" />
+                            <SelectValue placeholder="Choose a video stream" />
                           </SelectTrigger>
                           <SelectContent>
                             {videoOnlyFormats.length > 0 ? (
                               <SelectGroup>
-                                <SelectLabel>Video formats</SelectLabel>
+                                <SelectLabel>Video-only streams</SelectLabel>
                                 {videoOnlyFormats.map((format) => (
                                   <SelectItem key={format.format_id} value={format.format_id}>
                                     {buildVideoFormatLabel(format)}
@@ -448,7 +448,7 @@ export function MediaCard({
 
                             {muxedVideoFormats.length > 0 ? (
                               <SelectGroup>
-                                <SelectLabel>Muxed formats</SelectLabel>
+                                <SelectLabel>Video streams with audio</SelectLabel>
                                 {muxedVideoFormats.map((format) => (
                                   <SelectItem key={format.format_id} value={format.format_id}>
                                     {buildVideoFormatLabel(format)}
@@ -461,7 +461,7 @@ export function MediaCard({
                       </div>
                     ) : (
                       <div className="rounded-[1rem] border border-[color:var(--line)] bg-black/20 px-4 py-3 text-sm text-muted-foreground">
-                        Backend returned only audio-bearing formats for this URL.
+                        This link only exposed audio streams, so there is no separate video track to choose.
                       </div>
                     )}
 
@@ -495,7 +495,7 @@ export function MediaCard({
                         >
                           <Check className="size-3" />
                         </span>
-                        Source audio
+                        Include audio
                       </button>
                       {!allowsManualAudio && muxedAudioLabel ? (
                         <div className="flex h-11 w-full items-center justify-between rounded-[0.95rem] border border-[color:var(--line)] bg-white/[0.03] px-4 py-2 text-sm text-foreground opacity-50">
@@ -517,11 +517,11 @@ export function MediaCard({
                           disabled={isInputSectionDisabled || !normalizedConfig.includeAudio || audioFormats.length === 0}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="Choose audio stream" />
+                            <SelectValue placeholder="Choose an audio stream" />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectGroup>
-                              <SelectLabel>Audio-only formats</SelectLabel>
+                              <SelectLabel>Audio-only streams</SelectLabel>
                               {audioFormats.map((format) => (
                                 <SelectItem key={format.format_id} value={format.format_id}>
                                   {buildAudioFormatLabel(format)}
@@ -534,9 +534,9 @@ export function MediaCard({
                       <p className="text-xs leading-5 text-muted-foreground">
                         {allowsManualAudio
                           ? audioFormats.length > 0
-                            ? "If the video stream is separate, Nodus will attach your chosen audio track."
-                            : "No standalone audio streams were returned for this media."
-                          : "The selected video already includes audio, so the separate audio selector is locked."}
+                            ? "When the chosen video has no sound, Nodus combines it with this audio stream."
+                            : "This source did not provide a separate audio stream."
+                          : "The selected video already includes audio, so the audio choice is locked."}
                       </p>
                     </div>
                   </div>
@@ -551,14 +551,14 @@ export function MediaCard({
               >
                 <div className="grid gap-4">
                   <div>
-                    <h4 className="font-display text-3xl tracking-[-0.03em] text-foreground">Output</h4>
+                    <h4 className="font-display text-3xl tracking-[-0.03em] text-foreground">Output file</h4>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Original sends only the chosen streams. Remux changes container. Convert uses ffmpeg codecs.
+                      Keep the original streams, repackage them into another container, or convert them with ffmpeg.
                     </p>
                   </div>
 
                   <div className="grid gap-2">
-                    <label className="text-sm font-medium text-muted-foreground">Output mode</label>
+                    <label className="text-sm font-medium text-muted-foreground">How Nodus should create the file</label>
                     <ToggleGroup
                       type="single"
                       value={normalizedConfig.mode}
@@ -578,10 +578,10 @@ export function MediaCard({
                       className="grid w-full grid-cols-1 gap-2 md:grid-cols-3"
                     >
                       <ToggleGroupItem value="original" className="w-full">
-                        Original
+                        Keep original
                       </ToggleGroupItem>
                       <ToggleGroupItem value="remux" className="w-full">
-                        Remux
+                        Repackage
                       </ToggleGroupItem>
                       <ToggleGroupItem value="convert" className="w-full">
                         Convert
@@ -591,7 +591,7 @@ export function MediaCard({
 
                   <div className="grid gap-2">
                     <label className="text-sm font-medium text-muted-foreground">
-                      {normalizedConfig.mode === "original" ? "Container (automatic)" : "Container"}
+                      {normalizedConfig.mode === "original" ? "Container chosen automatically" : "Output container"}
                     </label>
                     {normalizedConfig.mode === "original" ? (
                       <div className="flex h-11 w-full items-center justify-between rounded-[0.95rem] border border-[color:var(--line)] bg-white/[0.03] px-4 py-2 text-sm text-foreground opacity-50">
@@ -614,12 +614,12 @@ export function MediaCard({
                         disabled={!canChooseContainer}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Choose container" />
+                          <SelectValue placeholder="Choose an output container" />
                         </SelectTrigger>
                         <SelectContent>
                            {audioOnlyContainers.length > 0 ? (
                              <SelectGroup>
-                               <SelectLabel>Audio containers</SelectLabel>
+                               <SelectLabel>Audio-only containers</SelectLabel>
                                {audioOnlyContainers.map((container) => (
                                  <SelectItem key={container} value={container}>
                                    {formatContainerOptionLabel(container)}
@@ -650,7 +650,7 @@ export function MediaCard({
                   <div className="grid gap-2 md:grid-cols-2">
                     <div className={cn("grid gap-2 transition-opacity", !normalizedConfig.includeVideo && "opacity-60")}>
                       <label className="text-sm font-medium text-muted-foreground">
-                        {normalizedConfig.mode === "convert" ? "Target video codec" : "Video codec"}
+                        {normalizedConfig.mode === "convert" ? "Convert video to" : "Video codec"}
                       </label>
                       <Select
                         value={normalizedConfig.vcodec ?? EMPTY_SELECT_VALUE}
@@ -665,11 +665,11 @@ export function MediaCard({
                       disabled={!canChooseVideoCodec}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="No video stream" />
+                          <SelectValue placeholder="No video selected" />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectGroup>
-                            <SelectLabel>Video codecs</SelectLabel>
+                            <SelectLabel>Video codec options</SelectLabel>
                             {videoCodecOptions.map((codec) => (
                               <SelectItem key={codec} value={codec}>
                                 {codec === sourceCodecs.video ? `Copy (${codec.toUpperCase()})` : codec.toUpperCase()}
@@ -682,7 +682,7 @@ export function MediaCard({
 
                     <div className={cn("grid gap-2 transition-opacity", !normalizedConfig.includeAudio && "opacity-60")}>
                       <label className="text-sm font-medium text-muted-foreground">
-                        {normalizedConfig.mode === "convert" ? "Target audio codec" : "Audio codec"}
+                        {normalizedConfig.mode === "convert" ? "Convert audio to" : "Audio codec"}
                       </label>
                       <Select
                         value={normalizedConfig.acodec ?? EMPTY_SELECT_VALUE}
@@ -697,11 +697,11 @@ export function MediaCard({
                       disabled={!canChooseAudioCodec}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="No audio stream" />
+                          <SelectValue placeholder="No audio selected" />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectGroup>
-                            <SelectLabel>Audio codecs</SelectLabel>
+                            <SelectLabel>Audio codec options</SelectLabel>
                             {audioCodecOptions.map((codec) => (
                               <SelectItem key={codec} value={codec}>
                                 {codec === sourceCodecs.audio ? `Copy (${codec.toUpperCase()})` : codec.toUpperCase()}

@@ -92,15 +92,15 @@ export default function App() {
         return;
       }
 
-      setBatchFatal(error instanceof Error ? error.message : "The metadata stream failed unexpectedly.");
+      setBatchFatal(error instanceof Error ? error.message : "Nodus could not finish reading metadata from the backend.");
     },
   });
 
   const healthLabel = healthQuery.isSuccess
-    ? "Backend online"
+    ? "Service ready"
     : healthQuery.isFetching
-      ? "Checking backend"
-      : "Backend offline";
+      ? "Checking service"
+      : "Service unavailable";
 
   const pendingCount = cards.filter((card) => card.state === "pending").length;
   const successfulCount = cards.filter((card) => card.state === "success").length;
@@ -237,7 +237,7 @@ export default function App() {
         ...current,
         download: {
           status: "error",
-          message: error instanceof Error ? error.message : "Download failed.",
+          message: error instanceof Error ? error.message : "Nodus could not prepare this download.",
         },
       }));
     }
@@ -268,7 +268,7 @@ export default function App() {
         ...current,
         download: {
           status: "error",
-          message: error instanceof Error ? error.message : "Download failed.",
+          message: error instanceof Error ? error.message : "Nodus could not prepare this download.",
         },
       }));
     }
@@ -281,12 +281,13 @@ export default function App() {
           <div className="mx-auto flex max-w-4xl flex-col gap-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="space-y-2">
-                <p className="section-kicker">Nodus media</p>
+                <p className="section-kicker">Nodus downloader</p>
                 <h1 className="hero-title text-balance text-4xl sm:text-5xl md:text-6xl lg:text-[4.5rem]">
-                  Fetch metadata from media links
+                  Download media from shared links
                 </h1>
                 <p className="max-w-2xl text-pretty text-base leading-7 text-muted-foreground md:text-lg">
-                  Paste one URL per line, wait for cards to resolve, then download quickly or open detailed format options.
+                  Paste video or audio URLs, let Nodus inspect the available streams, then download a ready file or choose
+                  the exact format, container, and codecs yourself.
                 </p>
               </div>
 
@@ -316,11 +317,11 @@ export default function App() {
                 <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                   <Badge variant="outline" className="gap-2">
                     <Globe2 className="size-3.5" />
-                    {cards.length} total
+                    {cards.length} links
                   </Badge>
                   <Badge variant="outline" className="gap-2">
                     <LoaderCircle className={pendingCount > 0 ? "size-3.5 animate-spin" : "size-3.5"} />
-                    {pendingCount} pending
+                    {pendingCount} reading
                   </Badge>
                   <Badge variant="outline" className="gap-2">
                     <Link2 className="size-3.5" />
@@ -332,12 +333,12 @@ export default function App() {
                   {fetchMutation.isPending ? (
                     <>
                       <LoaderCircle className="size-4 animate-spin" />
-                      Fetching
+                      Reading links
                     </>
                   ) : (
                     <>
                       <Link2 className="size-4" />
-                      Fetch
+                      Analyze links
                     </>
                   )}
                 </Button>
@@ -349,11 +350,11 @@ export default function App() {
         {invalidLines.length > 0 ? (
           <Alert variant="destructive" className="nodus-alert">
             <AlertCircle />
-            <AlertTitle>Skipped invalid lines</AlertTitle>
+            <AlertTitle>Some lines were skipped</AlertTitle>
             <AlertDescription>
               {invalidLines.length === 1
-                ? `This line is not a valid http/https URL: ${invalidLines[0]}`
-                : `${invalidLines.length} lines were skipped because they are not valid http/https URLs.`}
+                ? `This line is not a valid HTTP or HTTPS URL: ${invalidLines[0]}`
+                : `${invalidLines.length} lines were skipped because they are not valid HTTP or HTTPS URLs.`}
             </AlertDescription>
           </Alert>
         ) : null}
@@ -361,7 +362,7 @@ export default function App() {
         {batchFatal ? (
           <Alert variant="destructive" className="nodus-alert">
             <AlertCircle />
-            <AlertTitle>Stream interrupted</AlertTitle>
+            <AlertTitle>The metadata stream stopped</AlertTitle>
             <AlertDescription>{batchFatal}</AlertDescription>
           </Alert>
         ) : null}
@@ -369,19 +370,19 @@ export default function App() {
         <section className="space-y-4">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div className="space-y-1">
-              <p className="section-kicker">Fetched cards</p>
-              <h2 className="font-display text-4xl tracking-[-0.04em] text-foreground md:text-5xl">Results</h2>
+              <p className="section-kicker">Download queue</p>
+              <h2 className="font-display text-4xl tracking-[-0.04em] text-foreground md:text-5xl">Media ready to save</h2>
             </div>
 
             <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
               <Badge variant="outline" className="gap-2">
                 <Globe2 className="size-3.5" />
-                {cards.length} total
+                {cards.length} links
               </Badge>
               {pendingCount > 0 ? (
                 <Badge variant="outline" className="gap-2">
                   <LoaderCircle className="size-3.5 animate-spin" />
-                  {pendingCount} pending
+                  {pendingCount} reading
                 </Badge>
               ) : null}
             </div>
@@ -390,11 +391,11 @@ export default function App() {
           {cards.length === 0 ? (
             <Card className="nodus-surface flex min-h-[19rem] items-center justify-center px-6 py-10 text-center lg:min-h-[19rem]">
               <div className="mx-auto max-w-2xl space-y-3">
-                <p className="section-kicker">Nothing here yet</p>
-                <h3 className="font-display text-4xl tracking-[-0.04em] text-foreground">Cards will appear below</h3>
+                <p className="section-kicker">Waiting for links</p>
+                <h3 className="font-display text-4xl tracking-[-0.04em] text-foreground">Your downloads will appear here</h3>
                 <p className="text-base leading-7 text-muted-foreground">
-                  Start with one or several media URLs. Each link reserves its own slot and gets replaced in order as the
-                  backend streams metadata back.
+                  Add one link per line. Nodus keeps the queue in the same order, reads metadata in the background, and
+                  turns each valid URL into a download card with quick and advanced options.
                 </p>
               </div>
             </Card>
