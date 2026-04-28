@@ -22,6 +22,7 @@ import {
   coerceExpandedConfig,
   describeCompactSelection,
   describeSelection,
+  formatContainerDisplay,
   formatDuration,
   getAudioCodecOptions,
   getAudioOnlyFormats,
@@ -90,11 +91,7 @@ export function MediaCard({
     && (hasVideoStream ? hasAudio(activeVideo!) || audioFormats.length > 0 : audioFormats.length > 0);
   const containerOptions = hasSelectedSources ? getCompatibleContainersForConfig(metadata, normalizedConfig) : [];
   const originalContainerDisplay = hasSelectedSources ? getOriginalContainerDisplay(metadata, normalizedConfig) : null;
-  const originalContainerLabel = originalContainerDisplay?.containers.length
-    ? `${originalContainerDisplay.containers.map((container) => container.toUpperCase()).join(" / ")}${
-        originalContainerDisplay.showDefault ? " (default)" : ""
-      }`
-    : "No container";
+  const originalContainerLabel = formatContainerDisplay(originalContainerDisplay);
   const { audioOnly: audioOnlyContainers, videoCapable: videoCapableContainers } =
     splitCompatibleContainers(containerOptions);
   const sourceCodecs = getSourceCodecsForConfig(metadata, normalizedConfig);
@@ -283,8 +280,8 @@ export function MediaCard({
           </div>
         </div>
 
-        <div className="flex min-w-0 items-center justify-end gap-3 justify-self-end">
-          <div className="hidden min-w-0 max-w-[18rem] items-center gap-2 truncate rounded-full border border-[color:var(--line)] bg-black/20 px-3 py-2 text-sm text-foreground/90 lg:flex xl:max-w-[24rem]">
+        <div className="flex min-w-0 w-full items-center justify-end gap-3">
+          <div className="hidden min-w-0 w-fit max-w-full items-center gap-2 truncate rounded-full border border-[color:var(--line)] bg-black/20 px-3 py-2 text-sm text-foreground/90 lg:flex">
             <Sparkles className="size-4 shrink-0 text-[color:var(--accent)]" />
             <span className="truncate">{activeDownloadSummary}</span>
           </div>

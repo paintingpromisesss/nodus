@@ -583,7 +583,7 @@ describe("download request builders", () => {
     expect(originalConfig.acodec).toBe("opus");
   });
 
-  it("uses source video ext for original mode even when source codecs are mp4-compatible", () => {
+  it("uses source video ext for original mode config while summary shows compatible output containers", () => {
     const originalConfig = coerceExpandedConfig(sampleMetadata, {
       isExpanded: true,
       overrideQuickQuality: true,
@@ -601,7 +601,7 @@ describe("download request builders", () => {
     expect(originalConfig.vcodec).toBe("vp9");
     expect(originalConfig.acodec).toBe("aac");
     expect(describeSelection(sampleMetadata, originalConfig)).toBe(
-      "720p VP9 | 128 kbps AAC | WEBM | 49.0 MB",
+      "720p VP9 | 128 kbps AAC | MP4 / MKV | 49.0 MB",
     );
   });
 
@@ -642,6 +642,28 @@ describe("download request builders", () => {
   it("formats compact summary using the size-mode candidate", () => {
     expect(describeCompactSelection(sampleMetadata, "video:720p", "size")).toBe(
       "720p VP9 | 160 kbps OPUS | WEBM | 49.5 MB",
+    );
+  });
+
+  it("formats original output summary with all compatible containers for separate streams", () => {
+    const config = coerceExpandedConfig(sampleMetadata, {
+      isExpanded: true,
+      overrideQuickQuality: false,
+      includeVideo: true,
+      includeAudio: true,
+      videoFormatId: "247",
+      audioFormatId: "251",
+      mode: "original",
+      container: null,
+      vcodec: null,
+      acodec: null,
+    });
+
+    expect(describeCompactSelection(sampleMetadata, "video:720p", "size", config)).toBe(
+      "720p VP9 | 160 kbps OPUS | MP4 / WEBM / MKV | 49.5 MB",
+    );
+    expect(describeSelection(sampleMetadata, config)).toBe(
+      "720p VP9 | 160 kbps OPUS | MP4 / WEBM / MKV | 49.5 MB",
     );
   });
 
