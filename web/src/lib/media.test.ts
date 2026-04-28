@@ -6,6 +6,7 @@ import {
   coerceExpandedConfig,
   describeCompactSelection,
   describeSelection,
+  formatContainerDisplay,
   getCompactChoices,
   getAudioCodecOptions,
   getCompatibleContainersForConfig,
@@ -383,6 +384,8 @@ describe("download request builders", () => {
       containers: ["mp4"],
       showDefault: true,
     });
+    expect(formatContainerDisplay(display)).toBe("MP4 (default)");
+    expect(formatContainerDisplay(display, { includeDefault: false })).toBe("MP4");
   });
 
   it("builds expanded convert payload with explicit container and codecs", () => {
@@ -664,6 +667,25 @@ describe("download request builders", () => {
     );
     expect(describeSelection(sampleMetadata, config)).toBe(
       "720p VP9 | 160 kbps OPUS | MP4 / WEBM / MKV | 49.5 MB",
+    );
+  });
+
+  it("does not include default suffix in original summary for muxed streams", () => {
+    const config = coerceExpandedConfig(sampleMetadata, {
+      isExpanded: true,
+      overrideQuickQuality: true,
+      includeVideo: true,
+      includeAudio: true,
+      videoFormatId: "18",
+      audioFormatId: "auto",
+      mode: "original",
+      container: null,
+      vcodec: null,
+      acodec: null,
+    });
+
+    expect(describeSelection(sampleMetadata, config)).toBe(
+      "360p H264 | 128 kbps AAC | MP4 | 10.5 MB",
     );
   });
 

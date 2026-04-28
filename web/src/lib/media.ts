@@ -497,13 +497,18 @@ export function getOriginalContainerDisplay(metadata: MediaMetadata, config: Exp
   };
 }
 
-export function formatContainerDisplay(display: { containers: string[]; showDefault: boolean } | null) {
+export function formatContainerDisplay(
+  display: { containers: string[]; showDefault: boolean } | null,
+  options: { includeDefault?: boolean } = {},
+) {
   if (!display?.containers.length) {
     return "No container";
   }
 
+  const includeDefault = options.includeDefault ?? true;
+
   return `${display.containers.map((container) => container.toUpperCase()).join(" / ")}${
-    display.showDefault ? " (default)" : ""
+    includeDefault && display.showDefault ? " (default)" : ""
   }`;
 }
 
@@ -781,7 +786,7 @@ export function describeSelection(metadata: MediaMetadata, config: ExpandedConfi
   const resolved = resolveExpandedStreams(metadata, normalized);
   const originalContainerLabel =
     normalized.mode === "original"
-      ? formatContainerDisplay(getOriginalContainerDisplay(metadata, normalized))
+      ? formatContainerDisplay(getOriginalContainerDisplay(metadata, normalized), { includeDefault: false })
       : null;
 
   return describeResolvedStreams(resolved, {
@@ -847,7 +852,9 @@ function describeResolvedStreamsWithOutput(resolved: ResolvedStreams, outputConf
 
   if (outputConfig.mode === "original") {
     return describeResolvedStreams(resolved, {
-      containerLabelOverride: formatContainerDisplay(getOriginalResolvedContainerDisplay(resolved)),
+      containerLabelOverride: formatContainerDisplay(getOriginalResolvedContainerDisplay(resolved), {
+        includeDefault: false,
+      }),
     });
   }
 

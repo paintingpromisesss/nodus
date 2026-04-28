@@ -28,6 +28,7 @@ import {
   getAudioOnlyFormats,
   getCompactChoices,
   getCompatibleContainersForConfig,
+  getDefaultContainerForConfig,
   getMediaBadgeLabel,
   getOriginalContainerDisplay,
   getSourceCodecsForConfig,
@@ -89,9 +90,16 @@ export function MediaCard({
   const hasVideoStream = normalizedConfig.includeVideo && Boolean(activeVideo);
   const hasAudioStream = normalizedConfig.includeAudio
     && (hasVideoStream ? hasAudio(activeVideo!) || audioFormats.length > 0 : audioFormats.length > 0);
+  const usesMuxedSource = Boolean(normalizedConfig.includeVideo && activeVideo && isMuxed(activeVideo));
   const containerOptions = hasSelectedSources ? getCompatibleContainersForConfig(metadata, normalizedConfig) : [];
+  const defaultContainer =
+    hasSelectedSources && normalizedConfig.mode !== "original" && usesMuxedSource
+      ? getDefaultContainerForConfig(metadata, normalizedConfig)
+      : null;
   const originalContainerDisplay = hasSelectedSources ? getOriginalContainerDisplay(metadata, normalizedConfig) : null;
   const originalContainerLabel = formatContainerDisplay(originalContainerDisplay);
+  const formatContainerOptionLabel = (container: string) =>
+    `${container.toUpperCase()}${container === defaultContainer ? " (default)" : ""}`;
   const { audioOnly: audioOnlyContainers, videoCapable: videoCapableContainers } =
     splitCompatibleContainers(containerOptions);
   const sourceCodecs = getSourceCodecsForConfig(metadata, normalizedConfig);
@@ -614,7 +622,7 @@ export function MediaCard({
                                <SelectLabel>Audio containers</SelectLabel>
                                {audioOnlyContainers.map((container) => (
                                  <SelectItem key={container} value={container}>
-                                   {container.toUpperCase()}
+                                   {formatContainerOptionLabel(container)}
                                  </SelectItem>
                                ))}
                              </SelectGroup>
@@ -629,7 +637,7 @@ export function MediaCard({
                                </SelectLabel>
                                {videoCapableContainers.map((container) => (
                                  <SelectItem key={container} value={container}>
-                                   {container.toUpperCase()}
+                                   {formatContainerOptionLabel(container)}
                                  </SelectItem>
                                ))}
                             </SelectGroup>
@@ -642,7 +650,7 @@ export function MediaCard({
                   <div className="grid gap-2 md:grid-cols-2">
                     <div className={cn("grid gap-2 transition-opacity", !normalizedConfig.includeVideo && "opacity-60")}>
                       <label className="text-sm font-medium text-muted-foreground">
-                        {normalizedConfig.mode === "original" ? "Video codec" : "Target video codec"}
+                        {normalizedConfig.mode === "convert" ? "Target video codec" : "Video codec"}
                       </label>
                       <Select
                         value={normalizedConfig.vcodec ?? EMPTY_SELECT_VALUE}
@@ -674,7 +682,7 @@ export function MediaCard({
 
                     <div className={cn("grid gap-2 transition-opacity", !normalizedConfig.includeAudio && "opacity-60")}>
                       <label className="text-sm font-medium text-muted-foreground">
-                        {normalizedConfig.mode === "original" ? "Audio codec" : "Target audio codec"}
+                        {normalizedConfig.mode === "convert" ? "Target audio codec" : "Audio codec"}
                       </label>
                       <Select
                         value={normalizedConfig.acodec ?? EMPTY_SELECT_VALUE}
